@@ -1,0 +1,14 @@
+# game data and everything derived from it stays local
+work/
+build/
+shots/
+tester/build/
+*.bin
+*.cue
+*.chd
+!data/coverage.bin
+# toolchain / emulator binaries
+third_party/*.so
+tools/c/chdtool
+__pycache__/
+test/sys/

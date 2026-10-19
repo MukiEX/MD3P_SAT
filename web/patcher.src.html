@@ -1,0 +1,353 @@
+<title>Magical Drop III Paddle Patcher</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one working column (disc -> options -> patch) with a reference rail; a column of
+   coloured drops runs down the left edge like the game's field. */
+:root {
+  --bg: #f3f1f7;
+  --panel: #ffffff;
+  --ink: #221d33;
+  --muted: #6a6380;
+  --line: #ddd8e8;
+  --accent: #5b3fd1;
+  --accent-ink: #ffffff;
+  --drop-r: #e0425a; --drop-y: #f0b429; --drop-g: #2fa86a; --drop-b: #3b6fe0;
+  --ok: #1f8a55; --warn: #b7791f; --bad: #c53048;
+  --ok-bg: #e4f5ec; --bad-bg: #fbe7ea; --warn-bg: #fdf3e1;
+  --display: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #15121f; --panel: #1f1b2d; --ink: #ece8f7; --muted: #a39cbb; --line: #352f4a;
+  --accent: #9c87ff; --accent-ink: #16121f;
+  --ok: #5fd39a; --warn: #f2c063; --bad: #ff7f93; --ok-bg: #173628; --bad-bg: #3d1922; --warn-bg: #3a2e14;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #15121f; --panel: #1f1b2d; --ink: #ece8f7; --muted: #a39cbb; --line: #352f4a;
+  --accent: #9c87ff; --accent-ink: #16121f;
+  --ok: #5fd39a; --warn: #f2c063; --bad: #ff7f93; --ok-bg: #173628; --bad-bg: #3d1922; --warn-bg: #3a2e14;
+  color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 16px/1.55 var(--body); }
+.wrap { max-width: 1060px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; margin-bottom: 26px }
+.field { display: grid; grid-template-columns: repeat(3, 14px); gap: 4px }
+.field i { width: 14px; height: 14px; border-radius: 50%; display: block; box-shadow: inset -2px -3px 0 rgba(0,0,0,.18) }
+.r { background: var(--drop-r) } .y { background: var(--drop-y) } .g { background: var(--drop-g) } .b { background: var(--drop-b) }
+h1 { font: 900 clamp(1.6rem, 4vw, 2.4rem)/1.1 var(--display); margin: 0; text-wrap: balance; letter-spacing: .01em }
+.sub { color: var(--muted); margin: 6px 0 0; max-width: 62ch }
+.grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 22px; align-items: start }
+@media (max-width: 820px) { .grid { grid-template-columns: 1fr } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px }
+.stack { display: grid; gap: 18px }
+h2 { font: 700 1.15rem/1.3 var(--display); margin: 0 0 12px; display: flex; gap: 10px; align-items: center }
+h2 .n { font: 600 .78rem var(--mono); color: var(--accent); border: 1.5px solid var(--accent); border-radius: 999px; padding: 1px 8px }
+.drop { border: 2px dashed var(--line); border-radius: 12px; padding: 22px; display: grid; gap: 8px; justify-items: start; cursor: pointer; transition: border-color .15s, background .15s }
+.drop:hover, .drop.over, .drop:focus-visible { border-color: var(--accent); outline: none }
+.drop strong { font: 700 1.05rem var(--display) }
+.drop small { color: var(--muted) }
+.btn { font: 700 1rem var(--display); border: 0; border-radius: 10px; padding: 11px 20px; background: var(--accent); color: var(--accent-ink); cursor: pointer }
+.btn:disabled { opacity: .45; cursor: not-allowed }
+.btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent) }
+.btn:focus-visible, .seg button:focus-visible, .tog input:focus-visible + span { outline: 3px solid var(--drop-y); outline-offset: 2px }
+.file { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin-top: 14px; font-size: .93rem }
+.file dt { color: var(--muted) } .file dd { margin: 0; overflow-wrap: anywhere }
+.mono { font-family: var(--mono); font-size: .88em }
+.pill { display: inline-block; font: 600 .78rem var(--mono); padding: 2px 9px; border-radius: 999px }
+.pill.ok { background: var(--ok-bg); color: var(--ok) } .pill.bad { background: var(--bad-bg); color: var(--bad) } .pill.wait { background: var(--warn-bg); color: var(--warn) }
+.opt { display: grid; gap: 14px }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center }
+.row p { margin: 2px 0 0; color: var(--muted); font-size: .9rem }
+.seg { display: inline-flex; border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden }
+.seg button { font: 600 .85rem var(--mono); background: transparent; color: var(--ink); border: 0; padding: 7px 10px; cursor: pointer }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink) }
+.tog { position: relative; display: inline-block; width: 46px; height: 26px }
+.tog input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer }
+.tog span { position: absolute; inset: 0; border-radius: 999px; background: var(--line); transition: background .15s; pointer-events: none }
+.tog span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--panel); transition: transform .15s }
+.tog input:checked + span { background: var(--accent) } .tog input:checked + span::after { transform: translateX(20px) }
+.bar { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; margin: 12px 0 6px }
+.bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--drop-b), var(--drop-g), var(--drop-y), var(--drop-r)); transition: width .2s }
+.status { font-size: .93rem; color: var(--muted); min-height: 1.5em }
+.status.err { color: var(--bad) } .status.ok { color: var(--ok) }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px }
+table { width: 100%; border-collapse: collapse; font-size: .9rem }
+th, td { text-align: left; padding: 7px 6px; border-top: 1px solid var(--line); vertical-align: top }
+th { font: 700 .8rem var(--display); color: var(--muted); letter-spacing: .04em; text-transform: uppercase; border-top: 0 }
+td:first-child { font-weight: 700; white-space: nowrap }
+.ref p { margin: 0 0 10px; font-size: .92rem }
+.ref code { font-family: var(--mono); font-size: .85em; background: var(--bg); padding: 1px 5px; border-radius: 5px }
+.note { font-size: .86rem; color: var(--muted) }
+.tabs { display: flex; gap: 6px; border-bottom: 1.5px solid var(--line); margin-bottom: 22px; overflow-x: auto }
+.tabs button { font: 700 1rem var(--display); background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent; padding: 10px 14px; margin-bottom: -1.5px; cursor: pointer; white-space: nowrap }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent) }
+.tabs button:focus-visible { outline: 3px solid var(--drop-y); outline-offset: -3px }
+.doc { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: clamp(18px, 4vw, 40px); max-width: 860px }
+.doc > p:first-child { color: var(--muted); font-size: .9rem; margin-top: 0 }
+.doc h2 { font: 700 1.35rem/1.3 var(--display); margin: 2em 0 .6em; display: block; padding-top: .6em; border-top: 1px solid var(--line) }
+.doc h2:first-of-type { border-top: 0; padding-top: 0 }
+.doc h3 { font: 700 1.05rem var(--display); margin: 1.4em 0 .4em }
+.doc p, .doc li { max-width: 72ch }
+.doc ul, .doc ol { padding-left: 1.3em }
+.doc li { margin: .35em 0 }
+.doc code { font-family: var(--mono); font-size: .86em; background: var(--bg); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere }
+.doc .tw { overflow-x: auto; margin: 1em 0 }
+.doc table { min-width: 520px }
+.doc td:first-child { white-space: normal }
+.doc strong { color: var(--ink) }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="field" aria-hidden="true"><i class="r"></i><i class="b"></i><i class="y"></i><i class="g"></i><i class="r"></i><i class="b"></i><i class="y"></i><i class="g"></i><i class="r"></i></div>
+    <div>
+      <h1>Magical Drop III Paddle Edition</h1>
+      <p class="sub">Patches the Saturn release <em>Magical Drop III Toretate Zoukangou!</em> (T-1313G) so the clown follows a Shuttle Mouse, Arcade Racer wheel, 3D Control Pad stick or a JP3 spinner. Everything runs in this page; your disc never leaves your computer.</p>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button type="button" role="tab" id="t-patch" aria-controls="tab-patch" aria-selected="true">Patcher</button>
+    <button type="button" role="tab" id="t-how" aria-controls="tab-how" aria-selected="false" tabindex="-1">How it works</button>
+  </nav>
+
+  <section id="tab-patch" role="tabpanel" aria-labelledby="t-patch">
+  <div class="grid">
+    <div class="stack">
+      <section class="card" aria-labelledby="h-disc">
+        <h2 id="h-disc"><span class="n">1</span>Your disc</h2>
+        <div class="drop" id="drop" tabindex="0" role="button" aria-describedby="drop-help">
+          <strong>Drop Track 01 .bin or the whole-disc .chd here</strong>
+          <small id="drop-help">Or click to choose a file. A Redump BIN set only needs Track 01; keep the other tracks and the .cue as they are.</small>
+        </div>
+        <input type="file" id="pick" accept=".bin,.chd,.img,.iso" hidden>
+        <dl class="file" id="fileinfo">
+          <dt>Expected</dt><dd><span class="mono">Track 01, 5,116 sectors, CRC32 97D3B2B2</span></dd>
+          <dt>File</dt><dd id="f-name">none yet</dd>
+          <dt>Check</dt><dd id="f-check"><span class="pill wait">waiting for a file</span></dd>
+        </dl>
+      </section>
+
+      <section class="card" aria-labelledby="h-opt">
+        <h2 id="h-opt"><span class="n">2</span>Options</h2>
+        <div class="opt">
+          <div class="row">
+            <div><strong>Mouse speed</strong><p>Shuttle Mouse travel per column. ×1 is 32 counts per column.</p></div>
+            <div class="seg" role="group" aria-label="Mouse speed" id="speed">
+              <button type="button" data-v="1" aria-pressed="false">×¼</button>
+              <button type="button" data-v="2" aria-pressed="false">×½</button>
+              <button type="button" data-v="4" aria-pressed="true">×1</button>
+              <button type="button" data-v="8" aria-pressed="false">×2</button>
+            </div>
+          </div>
+          <div class="row">
+            <div><strong>Glide</strong><p>Draw the clown and aim line at the paddle position, up to one column either side.</p></div>
+            <label class="tog"><input type="checkbox" id="glide" checked aria-label="Glide"><span></span></label>
+          </div>
+          <div class="row">
+            <div><strong>Pulse target column</strong><p>The balloons in the column under the paddle brighten and dim on a 48-frame cycle.</p></div>
+            <label class="tog"><input type="checkbox" id="pulse" checked aria-label="Pulse target column"><span></span></label>
+          </div>
+          <div class="row">
+            <div><strong>Magnet</strong><p>Half mouse speed over a column you can catch from; wheels and sticks get 4× hysteresis there.</p></div>
+            <label class="tog"><input type="checkbox" id="magnet" aria-label="Magnet"><span></span></label>
+          </div>
+          <div class="row">
+            <div><strong>X pulls down</strong><p>In play, X pulls the field down instead of catching, like C on the Neo Geo. A and C still catch; menus are unchanged.</p></div>
+            <label class="tog"><input type="checkbox" id="xpull" aria-label="X pulls down"><span></span></label>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-go">
+        <h2 id="h-go"><span class="n">3</span>Patch</h2>
+        <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+        <div class="status" id="status" role="status">Choose a disc image to start.</div>
+        <div class="actions">
+          <button class="btn" id="go" disabled>Patch disc</button>
+          <button class="btn ghost" id="save" hidden>Save .zip</button>
+        </div>
+        <p class="note" id="outnote">The result is a .zip holding the patched file under its original name.</p>
+      </section>
+    </div>
+
+    <aside class="stack ref">
+      <section class="card">
+        <h2>Controllers</h2>
+        <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Device</th><th>In play</th></tr></thead>
+          <tbody>
+            <tr><td>Shuttle Mouse</td><td>Move to steer. Left catch, right throw, middle pull-down, left+right START. Menus step every 20 counts.</td></tr>
+            <tr><td>Arcade Racer</td><td>Wheel angle picks the column. Shift paddles stay up/down; in menus the wheel steps left/right.</td></tr>
+            <tr><td>3D Control Pad</td><td>Analog mode: the stick picks the column; touching the d-pad hands control back.</td></tr>
+            <tr><td>Mission Stick</td><td>Analog mode, same as the 3D pad.</td></tr>
+            <tr><td>JP3 spinner</td><td>Quadrature on d-pad left/right, or on Y (phase A) and Z (phase B) for adapters that clean the d-pad. Detected the first time both lines read pressed; 4 edges per column. On Y/Z the d-pad keeps working.</td></tr>
+            <tr><td>Control Pad</td><td>Unchanged.</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+      <section class="card">
+        <h2>What gets written</h2>
+        <p>Only <code>0.BIN</code> changes: 13 sectors of Track 01, each with fresh Mode 1 EDC/ECC. The patched Track 01 has CRC32 <code id="pcrc">9800971B</code> with default options.</p>
+        <p>CHD files are decoded in full to verify Track 01 and to recompute the raw and overall SHA-1. Unchanged hunks are copied byte for byte; the changed ones are stored uncompressed.</p>
+        <p class="note">Need BIN/CUE from a CHD? Convert with <code>chdman extractcd</code> first, then patch Track 01.</p>
+      </section>
+    </aside>
+  </div>
+  </section>
+
+  <section id="tab-how" role="tabpanel" aria-labelledby="t-how" hidden>
+    <article class="doc">/*DOC*/</article>
+  </section>
+
+</div>
+
+<script id="core" type="text/plain">/*CORE*/
+/*DATA*/</script>
+<script id="workersrc" type="text/plain">
+// ---- worker: reads the dropped File synchronously, runs the patch, reports progress
+let FILE = null;
+const rs = new FileReaderSync();
+function read(off, len) {
+  const end = Math.min(FILE.size, off + len);
+  const b = new Uint8Array(rs.readAsArrayBuffer(FILE.slice(off, Math.max(off, end))));
+  if (b.length === len) return b;
+  const p = new Uint8Array(len); p.set(b); return p;
+}
+PATCH.sectors.forEach((s) => { const bin = atob(s.data); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); s.data = u; });
+onmessage = (ev) => {
+  const m = ev.data;
+  try {
+    FILE = m.file;
+    const prog = (f, what) => postMessage({ type: 'progress', f, what });
+    const head = read(0, 16);
+    const isChd = String.fromCharCode.apply(null, head.subarray(0, 8)) === 'MComprHD';
+    let res, kind;
+    if (isChd) {
+      kind = 'chd';
+      const c = PC.chdOpen(read, FILE.size);
+      prog(0, 'Decoding ' + c.hunks.toLocaleString() + ' hunks');
+      res = PC.patchChd(c, PATCH, m.opts, (f) => prog(f * 0.8, 'Decoding and verifying'));
+    } else {
+      kind = 'bin';
+      res = PC.patchBin(read, FILE.size, PATCH, m.opts, (f) => prog(f * 0.5, 'Checking Track 01'));
+    }
+    // CRC32 of the output, in order, for the zip
+    let crc = 0, size = 0, total = 0; res.parts.forEach((p) => total += p.data ? p.data.length : p.src[1] - p.src[0]);
+    for (const p of res.parts) {
+      if (p.data) { crc = PC.crc32(p.data, crc); size += p.data.length; continue; }
+      for (let o = p.src[0]; o < p.src[1]; o += 1 << 22) { const x = read(o, Math.min(1 << 22, p.src[1] - o)); crc = PC.crc32(x, crc); size += x.length; prog((kind === 'chd' ? 0.8 : 0.5) + (kind === 'chd' ? 0.2 : 0.5) * size / total, 'Writing'); }
+    }
+    let trackCrc = null;
+    if (kind === 'bin' && !res.merged) trackCrc = crc;
+    postMessage({ type: 'done', kind, parts: res.parts.map((p) => p.data ? { data: p.data } : { src: p.src }), crc, size, merged: res.merged,
+      rawsha1: res.rawsha1, sha1: res.sha1, trackCrc });
+  } catch (e) { postMessage({ type: 'error', message: e.message || String(e) }); }
+};
+</script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const tabs = [['t-patch', 'tab-patch', ''], ['t-how', 'tab-how', 'how']];
+  function show(k, focus) {
+    tabs.forEach(([b, p], i) => { const on = i === k; $(b).setAttribute('aria-selected', String(on)); $(b).tabIndex = on ? 0 : -1; $(p).hidden = !on; });
+    if (focus) $(tabs[k][0]).focus();
+    try { history.replaceState(null, '', tabs[k][2] ? '#' + tabs[k][2] : location.pathname + location.search); } catch (e) {}
+  }
+  tabs.forEach(([b], i) => {
+    $(b).addEventListener('click', () => show(i));
+    $(b).addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); show((i + 1) % 2, true); } });
+  });
+  if (location.hash === '#how') show(1);
+  const src = $('core').textContent + '\n' + $('workersrc').textContent;
+  let worker = null, file = null, result = null, crc = 0;
+  try { worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' }))); }
+  catch (e) { $('status').textContent = 'This browser cannot start a Web Worker, so the patcher cannot run here.'; $('status').className = 'status err'; }
+  const opts = { speed: 4, glide: true, pulse: true, magnet: false, xpull: false };
+  try { const s = JSON.parse(localStorage.getItem('md3sat-opts3') || 'null'); if (s) Object.assign(opts, s); } catch (e) {}
+  function syncOpts() {
+    document.querySelectorAll('#speed button').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.v === opts.speed)));
+    $('glide').checked = opts.glide; $('pulse').checked = opts.pulse; $('magnet').checked = opts.magnet; $('xpull').checked = opts.xpull;
+    try { localStorage.setItem('md3sat-opts3', JSON.stringify(opts)); } catch (e) {}
+    if (result) { result = null; $('save').hidden = true; setStatus('Options changed. Patch again to apply them.'); $('bar').style.width = '0'; }
+  }
+  document.querySelectorAll('#speed button').forEach((b) => b.addEventListener('click', () => { opts.speed = +b.dataset.v; syncOpts(); }));
+  $('glide').addEventListener('change', (e) => { opts.glide = e.target.checked; syncOpts(); });
+  $('magnet').addEventListener('change', (e) => { opts.magnet = e.target.checked; syncOpts(); });
+  $('pulse').addEventListener('change', (e) => { opts.pulse = e.target.checked; syncOpts(); });
+  $('xpull').addEventListener('change', (e) => { opts.xpull = e.target.checked; syncOpts(); });
+  syncOpts();
+
+  function setStatus(t, cls) { $('status').textContent = t; $('status').className = 'status' + (cls ? ' ' + cls : ''); }
+  function setCheck(html) { $('f-check').innerHTML = html; }
+  function fmt(n) { return n >= 1 << 20 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1024).toFixed(0) + ' KB'; }
+  function choose(f) {
+    if (!f) return;
+    file = f; result = null; $('save').hidden = true; $('bar').style.width = '0';
+    $('f-name').textContent = f.name + ' (' + fmt(f.size) + ')';
+    setCheck('<span class="pill wait">not checked yet</span>');
+    $('go').disabled = !worker;
+    setStatus('Ready. The check runs when you patch.');
+  }
+  const drop = $('drop');
+  drop.addEventListener('click', () => $('pick').click());
+  drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('pick').click(); } });
+  $('pick').addEventListener('change', (e) => choose(e.target.files[0]));
+  ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', (e) => choose(e.dataTransfer.files[0]));
+
+  $('go').addEventListener('click', () => {
+    if (!file || !worker) return;
+    $('go').disabled = true; $('save').hidden = true; result = null;
+    setStatus('Starting'); setCheck('<span class="pill wait">checking</span>');
+    worker.postMessage({ file, opts: { speed: opts.speed, flags: (opts.glide ? 1 : 0) | (opts.magnet ? 2 : 0) | (opts.xpull ? 4 : 0) | (opts.pulse ? 8 : 0) } });
+  });
+  if (worker) worker.onmessage = (ev) => {
+    const m = ev.data;
+    if (m.type === 'progress') { $('bar').style.width = (m.f * 100).toFixed(1) + '%'; setStatus(m.what + '… ' + Math.round(m.f * 100) + '%'); return; }
+    $('go').disabled = false;
+    if (m.type === 'error') {
+      setCheck('<span class="pill bad">failed</span>'); setStatus(m.message, 'err'); $('bar').style.width = '0'; return;
+    }
+    $('bar').style.width = '100%';
+    const parts = m.parts.map((p) => p.data ? p.data : file.slice(p.src[0], p.src[1]));
+    const z = PCZ.zipStored(file.name, m.size, m.crc);
+    result = new Blob([z.head].concat(parts, z.tail), { type: 'application/zip' });
+    crc = m.crc;
+    setCheck('<span class="pill ok">Track 01 verified</span>');
+    let msg = m.kind === 'chd' ? 'Patched CHD ready (' + fmt(m.size) + '). New SHA-1 ' + m.sha1.slice(0, 12) + '…' : (m.merged ? 'Patched merged BIN ready.' : 'Patched Track 01 ready. CRC32 ' + m.crc.toString(16).toUpperCase().padStart(8, '0') + '.');
+    setStatus(msg, 'ok');
+    $('save').hidden = false; $('save').focus();
+  };
+  // zip helper on the page side (same code as the worker core)
+  const PCZ = (function () { const s = document.createElement('script'); s.textContent = $('core').textContent; document.head.appendChild(s); return window.PC; })();
+
+  let downloads = null;
+  async function getDownloads() {
+    if (downloads) return downloads;
+    try { if (window.claude && window.claude.use) downloads = await window.claude.use('downloads'); } catch (e) { downloads = null; }
+    return downloads;
+  }
+  getDownloads();
+  $('save').addEventListener('click', async () => {
+    if (!result) return;
+    const name = file.name.replace(/\.[^.]+$/, '') + ' [Paddle].zip';
+    if (await getDownloads()) {
+      try { await downloads.save({ filename: name, data: result }); setStatus('Saved ' + name + '.', 'ok'); }
+      catch (e) { setStatus(e && e.code === 'declined' ? 'Save cancelled. Press Save .zip again when ready.' : 'Saving is not available in this view (' + ((e && e.code) || 'error') + '). Open the page in a browser tab to save.', 'err'); }
+      return;
+    }
+    // opened from disk or outside the artifact viewer: a normal download link works there
+    const a = document.createElement('a'); a.href = URL.createObjectURL(result); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setStatus('Saved ' + name + '.', 'ok');
+  });
+})();
+</script>
