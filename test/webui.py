@@ -1,7 +1,7 @@
 import sys, os, zipfile, hashlib, io
 from playwright.sync_api import sync_playwright
 R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-page_html = open(os.path.join(R, 'build', 'MD3SatPaddlePatcher.html')).read()
+page_html = open(os.path.join(R, 'build', 'MD3_SAT_PADDLE.html')).read()
 doc = os.path.join(R, 'work', 'ui_test.html')
 open(doc, 'w').write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + page_html + '</body></html>')
 with sync_playwright() as p:
