@@ -12,15 +12,16 @@ It is the Saturn counterpart of the PS1 Paddle Edition: same paddle model, glide
 target column and optional magnet, adapted to SGL and the SH-2. Only `0.BIN` changes; the
 CD audio tracks are untouched.
 
-The full technical write-up is [release/MD3SatMouse.md](release/MD3SatMouse.md). It is also
+The full technical write-up is [releases/MD3SatMouse.md](releases/MD3SatMouse.md). It is also
 the second tab of the browser patcher.
 
 ## Using it
 
-- **Browser patcher:** open `release/MD3SatPaddlePatcher.html`, drop in your Track 01
+- **Browser patcher:** download [`releases/MD3SatPaddlePatcher.html`](releases/MD3SatPaddlePatcher.html)
+  and open it locally (one self-contained page, no server needed), drop in your Track 01
   `.bin`, the whole `.cue` set or a `.chd`, pick options (speed, glide, pulse, magnet,
   X pulls down) and download the patched image.
-- **Patch files:** `release/... [Paddle].xdelta` or `.ppf`, applied to Track 01
+- **Patch files:** `releases/... [Paddle].xdelta` or `.ppf`, applied to Track 01
   (Redump, CRC32 `97D3B2B2`). Patched Track 01 CRC32 is `1E76E4EC` with default options.
 
 ### Controls
@@ -65,7 +66,7 @@ the game is in this repository; `work/` and `build/` are git-ignored.
 
 `release.sh` assembles `src/md3sat_paddle.s` into free space in `0.BIN` (`tools/build.py`),
 checks delay slots (`tools/hazards.py`), rebuilds Track 01 with fresh EDC/ECC, and regenerates
-the PPF, xdelta and browser patcher in `release/`.
+the PPF, xdelta and browser patcher in `releases/`.
 
 Environment overrides: `SH_PREFIX` (binutils prefix, default `sh-elf-`), `XDELTA`,
 `YAB_CORE` (test emulator core), `LIBFLAC` (CHD fixture writer only).
@@ -105,7 +106,7 @@ python3 test/tester_check.py      # input tester disc
 | `src/md3sat_paddle.s` | all patch code, split into placeable chunks |
 | `tools/` | build, packer, disc/ISO/CHD/PPF tools, release script |
 | `web/` | browser patcher sources (`patchcore.js`, generated `patchdata.js`, page) |
-| `release/` | patcher HTML, write-up, xdelta, PPF |
+| `releases/` | browser patcher, write-up, xdelta, PPF |
 | `tester/` | input tester disc (SH-2 assembly + data generator + disc builder) |
 | `test/` | ctypes libretro harness and test scripts |
 | `data/` | free-space map and coverage used by the packer |
