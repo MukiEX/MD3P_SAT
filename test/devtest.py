@@ -162,18 +162,100 @@ r.press(0, ['X'], 2, 40); via_x = (cells(), r.r32(P1 + 0x20), bytes(r.read(P1 + 
 check('X pull-down option', via_l[0] > c0 and via_x == via_l and via_x[1] == n0, (c0, via_l[:2], via_x[:2], n0))
 game(); r.press(0, ['L'], 2, 40)
 
-# ---- menus: mouse taps in mode select, left click = A
-load(r, 'st_mode.bin'); apply_patch(r); r.set_device(0, DEV_MOUSE); r.run(3)
-taps = []; y0 = r.r16(PS + 12)
-for i in range(30):
-    r.ports[0].my = 2; r.run(1)
-    if r.r16(0x60b3d64): taps.append(r.r16(0x60b3d64))
-r.run(3); dy = (r.r16(PS + 12) - y0) & 0xffff
-check('mouse menu taps (20 counts each)', taps == [0x2000] * (dy // 20), ([hex(t) for t in taps], dy))
+# ---- menus with a paddle-only mouse (spinner): X alone drives every screen
+MODE, DEPTH, CUR_ST, CUR_VS, OPT_ROW, OPT_MUSIC = 0x605a434, 0x6087414, 0x6087384, 0x608738c, 0x60873ec, 0x60873e0
+MFLG = PS + 9
+def menu(dev=DEV_MOUSE, pad=(), port=0):
+    """original-disc mode select, optional pad presses to reach a screen, then the device"""
+    load(r, 'st_mode.bin'); apply_patch(r)
+    for p_ in r.ports: p_.buttons = set(); p_.mbtn = set(); p_.mx = p_.my = 0
+    r.set_device(0, DEV_JOYPAD); r.set_device(1, DEV_JOYPAD); r.run(3)
+    for b_, w_ in pad: r.press(0, [b_], 3, w_)
+    r.set_device(port, dev); r.run(3)
+def spin(n, port=0, per=1):
+    """move the mouse until the game-visible X has changed by n counts (the core scales
+    negative motion, so count what SGL reports rather than what was sent)"""
+    lx = PS + 32 * port + 10; x0 = r.r16(lx)
+    for i in range(4 * abs(n)):
+        if abs(((r.r16(lx) - x0 + 0x8000) & 0xffff) - 0x8000) >= abs(n): break
+        r.ports[port].mx = per if n > 0 else -per; r.run(1)
+    r.ports[port].mx = 0; r.run(4)
+def spin_back(n, port=0, per=1): spin(-n, port, per)
+
+menu()
+m0 = r.r32(MODE); spin(60, per=1); m1 = r.r32(MODE)
+check('paddle mouse: X walks the vertical mode list', m1 == (m0 + 3) % 5, (m0, m1))
+spin_back(40); check('paddle mouse: -X walks back up', r.r32(MODE) == (m1 - 2) % 5, r.r32(MODE))
+m2 = r.r32(MODE)
+for i in range(20): r.ports[0].my = 2; r.run(1)
+r.ports[0].my = 0; r.run(4)
+check('paddle mouse: a little Y is ignored', r.r32(MODE) == m2 and r.r8(MFLG) & 1 == 0, (r.r32(MODE), r.r8(MFLG)))
+for i in range(30): r.ports[0].my = 2; r.run(1)
+r.ports[0].my = 0; r.run(4)
+m3 = r.r32(MODE)
+check('real mouse: Y motion switches menus to both axes', r.r8(MFLG) & 1 == 1 and m3 != m2, (m2, m3, r.r8(MFLG)))
+spin(60); check('real mouse: X is left/right again (mode list unchanged)', r.r32(MODE) == m3, r.r32(MODE))
 r.run(30); ps_ = set(); r.ports[0].mbtn = {'LEFT'}
 for i in range(4): r.run(1); ps_.add(r.r16(0x60b3d64))
 r.ports[0].mbtn = set()
 check('mouse left = A in menus', ps_ == {0, 0x0400}, [hex(x) for x in ps_])
+menu(); r.w8(TUNE + 13, 9 | 16)
+m0 = r.r32(MODE)
+for i in range(60): r.ports[0].my = 3; r.run(1)
+r.ports[0].my = 0; r.run(4)
+check('pure paddle: Y never used', r.r32(MODE) == m0 and r.r8(MFLG) & 1 == 0, (r.r32(MODE), r.r8(MFLG)))
+spin(20); check('pure paddle: X still walks the list', r.r32(MODE) == (m0 + 1) % 5, r.r32(MODE))
+
+# story character select: 2 rows (0..6, 7..15) walked in reading order
+menu(pad=[('A', 150), ('A', 150)])
+cur = []
+for i in range(17): spin(20); cur.append(r.r32(CUR_ST))
+check('story grid: X walks both rows in reading order', cur == list(range(1, 16)) + [0, 1], cur)
+r.w16(PS + 18, 0); spin_back(40); check('story grid: back across the row ends', r.r32(CUR_ST) == 15, r.r32(CUR_ST))
+r.w16(PS + 18, 0); spin(6 * 20)                     # 15 -> 0 .. 5, a top-row slot with one below
+hop = [r.r32(CUR_ST)]
+for i in range(2):
+    r.w16(PS + 18, 0); r.ports[0].mbtn = {'MIDDLE'}; r.run(2); spin(20); r.ports[0].mbtn = set(); r.run(4)
+    hop.append(r.r32(CUR_ST))
+check('story grid: modifier (middle button) hops rows', hop == [hop[0], hop[0] + 8, hop[0]], hop)
+
+# VS character select: P2 on port 2 walks its own cursor
+menu(pad=[('DOWN', 30), ('A', 150), ('A', 150)])
+r.press(0, ['A'], 3, 60)                       # P1 picks; P2's turn
+r.set_device(1, DEV_MOUSE); r.run(3); c0 = r.r32(CUR_VS + 4)
+spin(20, port=1); c1 = r.r32(CUR_VS + 4)
+check('VS grid: P2 mouse walks P2 cursor across the row end', (c0, c1) == (6, 7), (c0, c1))
+r.set_device(1, DEV_JOYPAD)
+
+# puzzle character select is a single row: X sends LEFT/RIGHT there
+menu(pad=[('DOWN', 30), ('DOWN', 30), ('A', 150), ('A', 150)])
+taps = set()
+for i in range(40):
+    r.ports[0].mx = 1; r.run(1)
+    if r.r16(0x60b3d64): taps.add(r.r16(0x60b3d64))
+r.ports[0].mx = 0; r.run(4)
+check('puzzle grid (1 row): X sends RIGHT', taps == {0x8000} and r.r32(DEPTH) == 2, ([hex(t) for t in taps], r.r32(DEPTH)))
+
+# options: rows by X, values with B held; B alone still backs out
+menu(pad=[('UP', 30), ('A', 150)])
+spin(40); row, mus = r.r32(OPT_ROW), r.r32(OPT_MUSIC)
+check('options: X picks rows', row == 2, row)
+r.ports[0].mbtn = {'RIGHT'}; r.run(3)
+spin(20); held_press = r.r16(0x60b3d64)
+r.ports[0].mbtn = set(); r.run(10)
+check('options: B held + X changes the value, not the row',
+      r.r32(OPT_ROW) == 2 and r.r32(OPT_MUSIC) == mus + 1 and r.r32(DEPTH) == 1, (r.r32(OPT_ROW), r.r32(OPT_MUSIC), r.r32(DEPTH)))
+r.ports[0].mbtn = {'RIGHT'}; r.run(3); r.ports[0].mbtn = set(); r.run(60)
+check('options: B tap (no spin) is delivered on release', r.r32(DEPTH) == 0, r.r32(DEPTH))
+
+# JP3 (Y/Z wiring) on the mode list
+menu(dev=DEV_JOYPAD)
+seq = [set(), {'Y'}, {'Y', 'Z'}, {'Z'}]
+r.ports[0].buttons = {'Y', 'Z'}; r.run(2); ph = 2; m0 = r.r32(MODE)
+for i in range(4): ph = (ph + 1) % 4; r.ports[0].buttons = seq[ph]; r.run(2)
+r.ports[0].buttons = seq[ph]; r.run(6)
+check('JP3: spinner walks the vertical mode list', r.r32(MODE) == (m0 + 2) % 5, (m0, r.r32(MODE)))
+r.ports[0].buttons = set()
 load(r, 'st_mode.bin'); apply_patch(r); r.set_device(0, DEV_WHEEL); r.run(3)
 r.ports[0].ax = -32768; r.run(10)
 taps = []

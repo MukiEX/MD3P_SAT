@@ -1,6 +1,6 @@
 # Magical Drop III Saturn Paddle Edition: Technical Breakdown
 
-Oct 18, 2026 · @Pete
+Oct 21, 2026 · @Pete
 
 The Saturn Paddle Edition patches `0.BIN` of Magical Drop III Toretate Zoukangou! (Japan, T-1313G) so the clown is driven by a virtual paddle from a Shuttle Mouse, an Arcade Racer wheel, a 3D Control Pad or Mission Stick in analog mode, or a JP3-style spinner on the d-pad or on Y/Z. It is the same design as the PS1 Paddle Edition, adapted to SGL and the SH-2.
 
@@ -13,17 +13,17 @@ All devices go through one replacement PadRead. The game still only sees its nor
 | Executables | 6 language EXEs + selector | one `0.BIN`, loaded at 0x06004000 |
 | Pad library | BIOS B(15h), replaced by InitPAD/StartPAD | SGL `Smpc_Peripheral[]`, already parsed every VBlank |
 | Hook style | jal/j patches at signature-found sites | 3 retargeted function-pointer literals + 4 inline draw-site patches |
-| Patch code | ~6 KB in 20 chunks | 2.2 KB in 12 chunks |
+| Patch code | ~6 KB in 20 chunks | 2.6 KB in 14 chunks |
 | Free space | 8.5 to 9.8 KB per language | 6.9 KB in 44 holes, largest 456 bytes |
 
 ## Disc and executable
 
-The Saturn data track is one MODE1/2352 track. The patch rewrites `0.BIN` in place; only the 13 sectors that changed get new EDC/ECC.
+The Saturn data track is one MODE1/2352 track. The patch rewrites `0.BIN` in place; only the 16 sectors that changed get new EDC/ECC.
 
 | Item | Value |
 | --- | --- |
 | Source image | Track 01, 5,116 sectors, 12,032,832 bytes, CRC32 97D3B2B2 |
-| Patched Track 01 | CRC32 81F29498 (default options) |
+| Patched Track 01 | CRC32 3FD52ADD (default options) |
 | Boot | IP.BIN first read address 0x06004000, `0.BIN` at LBA 29, 564,848 bytes |
 | Library | SGL 2.11 (`GFS_SGL Version 2.11 1996-03-21`), GBR = 0x060FFC00 |
 | Other tracks | CD-DA, untouched; a BIN/CUE set only needs Track 01 replaced |
@@ -105,10 +105,20 @@ As on PS1, the balloons in the column under the paddle pulse on a 12-step triang
 Outside play, motion becomes single d-pad taps OR'd into held and pressed for one read. Every screen reacts as if the pad was used.
 
 - **In play or not**: `paddle_tick` stamps the read counter; PadRead treats a port as in play while the stamp is under 3 reads old. Pausing stops the ticks, so pause menus get taps too.
-- **Mouse**: 20 counts per tap, the larger axis wins, at most one tap per read, remainder carried and clamped to 4 taps.
-- **Wheel**: 16 wheel units per left/right tap; up/down stay on the shift paddles. That is enough for every menu, including the 2-row character grid, so no per-screen code was needed (the PS1 card-select table walk and name-entry hook are not ported).
-- **JP3**: 2 edges per left/right tap (either wiring).
-- Checked on mode select, options, story, VS (two players, mouse + wheel), endless and the sugoroku board.
+- **Spinner first**: like the PS1 version, the menus assume a paddle with only an X axis. A Shuttle Mouse counts as a spinner until its Y axis has moved 64 counts in total (`T_YDET`); from then on it is a full mouse or trackball and the menus use both axes (20 counts per tap, the larger axis wins). The count starts over when the device changes. The patcher's **Pure paddle** option (flag bit 4) never switches. A JP3 spinner is always X only.
+- **X only**: 20 mouse counts or 2 JP3 edges per tap, at most one tap per read, remainder carried and clamped to 4 taps. What the tap becomes depends on the screen, read from the game's top-level state (0x0608DE74), mode cursor (0x0605A434) and menu depth (0x06087414):
+
+| Screen | +X / −X |
+| --- | --- |
+| Mode, level, rule and 1P/VS selects; options; custom VS rules; sugoroku board menu | DOWN / UP |
+| Story and VS character select (2 rows: 0–6, 7–15) | next / previous character in reading order |
+| Puzzle and sugoroku character select (1 row) | RIGHT / LEFT |
+| Everything else (title, continue, results) | RIGHT / LEFT |
+
+- **Row ends**: the grids only wrap within a row, so at a row end the patch first writes the cursor (story 0x06087384, VS 0x0608738C + 4 × player) to the far end of the other row and then sends the tap. The game's own wrap lands on the right character, with its sound and portrait update.
+- **Modifier**: holding B (mouse right button) or R (mouse middle) swaps DOWN/UP and RIGHT/LEFT, so option values and custom rules can be changed; in a character grid it hops to the other row. B is held back while it is down and sent on release, so a B tap still backs out; if X moved while B was held, no B is sent.
+- **Wheel**: 16 wheel units per left/right tap; up/down stay on the shift paddles. That is enough for every menu, including the 2-row character grid.
+- Checked on mode select, options, story, VS (two players, mouse + wheel), puzzle, endless and the sugoroku board.
 
 ## X pulls down (option)
 
@@ -131,7 +141,7 @@ GNU as (sh-elf, `--isa=sh2`) builds each chunk at offset 0; there is no ld. `bui
 
 ## Tuning block
 
-16 bytes after the tag `SDCF` (0x060406C0 in this build; LBA 149, offset 1732 in Track 01): menu steps for mouse/wheel/JP3, relative hysteresis, settle ticks, mouse speed, JP3 units, absolute hysteresis, wheel range, stick range and dead zone, in-play window, and flags (bit 0 glide, bit 1 magnet, bit 2 X pulls down, bit 3 pulse; default 9 = glide + pulse). The 12-step pulse ramp follows the tuning block. The browser patcher writes the speed and flag bytes and rebuilds that sector's EDC/ECC.
+16 bytes after the tag `SDCF` (0x0603EB6C in this build; LBA 146, offset 876 in Track 01): menu steps for mouse/wheel/JP3, relative hysteresis, settle ticks, mouse speed, JP3 units, absolute hysteresis, wheel range, stick range and dead zone, in-play window, flags (bit 0 glide, bit 1 magnet, bit 2 X pulls down, bit 3 pulse, bit 4 pure paddle; default 9 = glide + pulse), and the mouse Y-detection threshold (64 counts). The 12-step pulse ramp follows the tuning block. The browser patcher writes the speed and flag bytes and rebuilds that sector's EDC/ECC.
 
 ## SH-2 pitfalls
 
@@ -165,14 +175,14 @@ GNU as (sh-elf, `--isa=sh2`) builds each chunk at offset 0; there is no ld. `bui
 | `tools/make_ppf.py`, xdelta3 | PPF 3.0 and xdelta against Track 01 |
 | `tools/chd.py`, `tools/c/chdtool` | CHD v5 fixture writer (cdlz/cdzl/cdfl, SELF dedupe, Huffman+RLE map); libchdr reader with block CRCs on |
 | `tools/release.sh` | the full build |
-| `test/devtest.py` | 33 checks: pad unchanged, mouse travel/speed/buttons/re-centre, magnet, glide on/off, wheel, 3D pad, JP3 on d-pad and Y/Z (digital and 3D pad), X pull-down, pulse (one column, ramps, follows the paddle, off for pads and when disabled), menu taps |
+| `test/devtest.py` | 48 checks: pad unchanged, mouse travel/speed/buttons/re-centre, magnet, glide on/off, wheel, 3D pad, JP3 on d-pad and Y/Z (digital and 3D pad), X pull-down, pulse (one column, ramps, follows the paddle, off for pads and when disabled), spinner menus (vertical lists, both character grids across row ends, 1-row grids, B/R modifier, B on release, Y detection, pure paddle, JP3), wheel menu taps |
 | `test/webtest.js`, `test/webui.py` | patch core in Node; the page end to end in headless Chromium |
 
 ## Browser patcher
 
 A single HTML page takes Track 01 `.bin` (or a merged single-bin image) or a whole-disc CHD, all offline in a Web Worker.
 
-- **BIN**: CRC32 check of Track 01 (an already-patched track is recognised), then the 13 sectors are spliced in with Blob slices.
+- **BIN**: CRC32 check of Track 01 (an already-patched track is recognised), then the 16 sectors are spliced in with Blob slices.
 - **CHD**: v5 only, no parent. Map: Huffman tree (RLE-coded), RLE_SMALL/LARGE, SELF/SELF_0/SELF_1 and the parent forms. Codecs: cdlz (own raw LZMA decoder), cdzl (own raw inflate), cdfl (own FLAC frame decoder, big-endian output), each with deflated subcode; ECC-bitmap sectors get sync and P/Q rebuilt. Every hunk's CRC16 is checked.
 - **CHD output**: hunks rewritten in order; unchanged blobs copied byte for byte, changed hunks stored uncompressed. A SELF reference to a changed hunk gets its own copy of the original blob. The map uses 16 fixed 4-bit codes. Raw SHA-1 (all data decoded) and overall SHA-1 are recomputed; libchdr reads the result with block CRCs on.
 - **Delivery**: a stored ZIP through the artifact `downloads` capability; opened from disk, a normal download link.
@@ -181,6 +191,7 @@ A single HTML page takes Track 01 `.bin` (or a merged single-bin image) or a who
 ## Not done yet / caveats
 
 - Not run on real hardware or on a chdman-made CHD of this disc. The emulator has no Shuttle Mouse timing and does not model the real Arcade Racer's L/R bits.
+- Sugoroku junction choices with a spinner are not tested; the board menu is. Use the B/R modifier for left/right at a junction.
 - No Options-menu speed row. The Saturn options screen draws hard-coded rows, so speed is set in the patcher (the tuning block) instead.
 
 ## Reuse checklist (Saturn additions)

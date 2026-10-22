@@ -17,6 +17,7 @@ s = s.replace('/*CORE*/', core).replace('/*DATA*/', data)
 import json, re
 P = json.loads(re.search(r'var PATCH = (.*);', data).group(1))
 s = s.replace('9800971B', '%08X' % P['patchedCrc'])
+s = s.replace('<span id="nsec">13</span>', '<span id="nsec">%d</span>' % len(P['sectors']))
 HEAD = '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>\n</head>\n<body>\n'
 s = HEAD + s + '</body>\n</html>\n'
 open(os.path.join(R, 'build', 'MD3_SAT_PADDLE.html'), 'w').write(s)

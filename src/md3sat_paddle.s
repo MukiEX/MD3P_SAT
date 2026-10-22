@@ -52,6 +52,7 @@
 	.equ	S_IDLE,	6	! idle ticks (relative)
 	.equ	S_LDIR,	7	! jp3 last direction (+1/-1)
 	.equ	S_LAXIS,8	! last axis value (wheel menu taps)
+	.equ	S_MFLG,	9	! menu flags: bit0 mouse has a Y axis, bit1 B withheld, bit2 tap while B held
 	.equ	S_LX,	10	! last SGL mouse x (word)
 	.equ	S_LY,	12	! last SGL mouse y
 	.equ	S_ACC,	14	! relative counts waiting for the paddle tick
@@ -60,6 +61,7 @@
 	.equ	S_MY,	20
 	.equ	S_MBP,	22	! mouse buttons pressed since last tick (remapped bits)
 	.equ	S_STAMP,24	! g_count at the last paddle tick (long)
+	.equ	S_YACC,	28	! mouse |dy| seen since the device appeared (word, saturating)
 	.equ	S_SIZE,	32
 
 	! tuning block offsets (after the 4-byte "SDCF" tag)
@@ -76,7 +78,9 @@
 	.equ	T_ARANGE,	10	! analog stick +- range across the field
 	.equ	T_ADEAD,	11	! analog engage threshold
 	.equ	T_INPLAY,	12	! reads since the last tick that still count as "in play"
-	.equ	T_FLAGS,	13	! bit0 glide, bit1 magnet, bit2 X = pull-down, bit3 pulse target column
+	.equ	T_FLAGS,	13	! bit0 glide, bit1 magnet, bit2 X = pull-down, bit3 pulse target column,
+				! bit4 pure paddle (never use mouse Y)
+	.equ	T_YDET,		14	! mouse |dy| counts before menus also use the Y axis
 
 !@chunk data
 	.align	2
@@ -95,8 +99,9 @@ tune:
 	.byte	0x60		! T_ARANGE
 	.byte	0x28		! T_ADEAD
 	.byte	3		! T_INPLAY
-	.byte	9		! T_FLAGS (glide + pulse on, magnet off, X pull-down off)
-	.byte	0,0
+	.byte	9		! T_FLAGS (glide + pulse on, magnet off, X pull-down off, Y auto)
+	.byte	64		! T_YDET
+	.byte	0
 g_count:
 	.long	0
 pstate:
@@ -176,6 +181,8 @@ pad_read:
 	mov.w	r0,@(S_MX,r9)
 	mov.w	r0,@(S_MY,r9)
 	mov.w	r0,@(S_MBP,r9)
+	mov.b	r0,@(S_MFLG,r9)
+	mov.w	r0,@(S_YACC,r9)
 	mov	#-1,r0
 	mov.w	r0,@(S_POS,r9)
 	mov.w	@(8,r10),r0
@@ -321,6 +328,9 @@ pr_mouse:
 	exts.w	r6,r6			! dy
 	mov.w	@(10,r10),r0
 	mov.w	r0,@(S_LY,r9)
+	mov.l	.Lydet_m,r0
+	jsr	@r0			! notice a real Y axis (full mouse / trackball)
+	nop
 	! L+R chord = START
 	mov.w	.Lw0600,r1
 	mov	r11,r0
@@ -405,6 +415,7 @@ pr_mouse:
 	.align	2
 .Ltune_m:	.long	tune
 .Lmenutap_m:	.long	menu_tap
+.Lydet_m:	.long	y_detect
 .Lstore_m:	.long	pad_read_store
 
 !@chunk prdev
@@ -591,6 +602,19 @@ pr_jp3:
 ! menu_tap: r5 = dx, r6 = dy, r7 = counts per tap; r9 = state; may OR one d-pad tap into
 ! r11 (held) and r12 (pressed). The larger axis wins; remainder carried; at most one tap.
 menu_tap:
+	mov.b	@(S_TYPE,r9),r0
+	cmp/eq	#3,r0			! JP3: X only
+	bt	.Lxonly
+	cmp/eq	#2,r0
+	bf	.Lxy
+	mov.b	@(S_MFLG,r9),r0		! mouse without a Y axis seen yet: X only
+	tst	#1,r0
+	bf	.Lxy
+.Lxonly:
+	mov.l	.Lxmenu,r0
+	jmp	@r0
+	nop
+.Lxy:
 	mov.w	@(S_MX,r9),r0
 	add	r0,r5
 	mov.w	@(S_MY,r9),r0
@@ -656,6 +680,218 @@ menu_tap:
 .Lleft:	 .word	0x4000
 .Ldown:	 .word	0x2000
 .Lup:	 .word	0x1000
+	.align	2
+.Lxmenu: .long	x_menu
+
+!@chunk xmenu
+! Menus for paddle-only devices (spinner as Shuttle Mouse, JP3). Only X is used; it is
+! turned into the tap the current screen needs:
+!   vertical lists (mode/level/rule select, options, custom rules, sugoroku board menu):
+!     +X = DOWN, -X = UP
+!   character select: 2-row grids walk in reading order (row ends hop to the other row
+!     through the game's own wrap), 1-row grids use LEFT/RIGHT
+!   everything else (continue, results, title): LEFT/RIGHT
+! Holding B (mouse right) or R (mouse middle) swaps vertical and horizontal, so option
+! values can be changed. B is held back while it is down and delivered on release, unless
+! X moved while it was held.
+! Same entry as menu_tap: r5 dx, r7 counts per tap, r8 player, r9 state, r11/r12 held/pressed.
+	.equ	G_STATE,	0x0608de74	! game: top-level state (5 menus, 6 play, 7 sugoroku board)
+	.equ	G_MODE,		0x0605a434	! game: mode select cursor (0 story .. 4 options)
+	.equ	G_DEPTH,	0x06087414	! game: menu screen depth within the mode
+	.equ	G_CUR_ST,	0x06087384	! game: story character cursor (0..6 top, 7..15 bottom)
+	.equ	G_CUR_VS,	0x0608738c	! game: VS character cursors, P1 then P2
+x_menu:
+	mov.b	@(S_MFLG,r9),r0
+	mov	r0,r4			! r4 = flags
+	mov.w	.Lxb,r1
+	mov	#0,r3			! r3 = axis swap (modifier)
+	tst	r1,r11
+	bt	.Lnob
+	not	r1,r2			! B down: hold it back
+	and	r2,r11
+	and	r2,r12
+	or	#2,r0
+	mov	r0,r4
+	bra	.Lmod
+	mov	#1,r3
+.Lnob:	tst	#2,r0
+	bt	.Lrt
+	tst	#4,r0			! B released: deliver it unless X moved meanwhile
+	bf	.Lspun
+	or	r1,r11
+	or	r1,r12
+.Lspun:	and	#0xF9,r0
+	mov	r0,r4
+.Lrt:	mov	r11,r0
+	tst	#0x80,r0		! R held also swaps axes
+	bt	.Lmod
+	mov	#1,r3
+.Lmod:	mov.w	@(S_MX,r9),r0
+	add	r0,r5
+	mov	r7,r1			! clamp to +-4 taps
+	shll2	r1
+	cmp/gt	r1,r5
+	bf	.Lk1
+	mov	r1,r5
+.Lk1:	neg	r1,r1
+	cmp/ge	r1,r5
+	bt	.Lk2
+	mov	r1,r5
+.Lk2:	mov	r5,r1
+	cmp/pz	r1
+	bt	.Lk3
+	neg	r1,r1
+.Lk3:	cmp/hs	r7,r1
+	bf	.Lsave
+	mov	#1,r6			! r6 = +1 / -1
+	cmp/pz	r5
+	bf	.Lk4
+	bra	.Lk5
+	sub	r7,r5
+.Lk4:	add	r7,r5
+	mov	#-1,r6
+.Lk5:	mov	r4,r0			! a tap while B is held: B will not be sent
+	tst	#2,r0
+	bt	.Lscr
+	or	#4,r0
+	mov	r0,r4
+.Lscr:	mov.l	.Lgstate,r1
+	mov.l	@r1,r0
+	cmp/eq	#7,r0
+	bt	.Lvert
+	cmp/eq	#5,r0
+	bf	.Lhorz
+	mov.l	.Lgdepth,r2
+	mov.l	@r2,r2
+	mov.l	.Lgmode,r1
+	mov.l	@r1,r0
+	cmp/eq	#0,r0
+	bf	.Lm1
+	mov	r2,r0			! story: depth 2 = 2-row grid
+	cmp/eq	#2,r0
+	bf	.Lvert
+	mov.l	.Lcurst,r7
+	bra	.Lgrid
+	nop
+.Lm1:	cmp/eq	#1,r0
+	bf	.Lm2
+	mov	r2,r0			! VS: depth 3 = 2-row grid, one cursor per player
+	cmp/eq	#3,r0
+	bf	.Lvert
+	mov.l	.Lcurvs,r7
+	mov	r8,r0
+	shll2	r0
+	bra	.Lgrid
+	add	r0,r7
+.Lm2:	cmp/eq	#2,r0			! puzzle / sugoroku: depth 2 = 1-row grid
+	bt	.Lm3
+	cmp/eq	#3,r0
+	bf	.Lvert
+.Lm3:	mov	r2,r0
+	cmp/eq	#2,r0
+	bt	.Lhorz
+.Lvert:	tst	r3,r3
+	bf	.Lh
+.Lv:	cmp/pz	r6
+	bt	.Ldn
+	bra	.Lemit
+	mov	#0x10,r1		! UP (0x1000 >> 8)
+.Ldn:	bra	.Lemit
+	mov	#0x20,r1		! DOWN
+.Lhorz:	tst	r3,r3
+	bf	.Lv
+.Lh:	cmp/pz	r6
+	bt	.Lrr
+.Lll:	bra	.Lemit
+	mov	#0x40,r1		! LEFT
+.Lrr:	bra	.Lemit
+	mov	#-128,r1		! RIGHT (0x80, sign-extended; masked below)
+.Lgrid:	mov.l	@r7,r0
+	tst	r3,r3			! modifier: hop to the other row
+	bt	.Lg0
+	mov	#7,r1
+	cmp/ge	r1,r0
+	bf	.Ldn
+	bra	.Lemit
+	mov	#0x10,r1		! UP
+.Lg0:
+	cmp/pz	r6
+	bf	.Lgl
+	cmp/eq	#6,r0			! end of top row -> start of bottom row
+	bf	.Lg1
+	mov	#15,r0
+	bra	.Lrr
+	mov.l	r0,@r7
+.Lg1:	cmp/eq	#15,r0			! end of bottom row -> start of top row
+	bf	.Lrr
+	mov	#6,r0
+	bra	.Lrr
+	mov.l	r0,@r7
+.Lgl:	cmp/eq	#7,r0			! start of bottom row -> end of top row
+	bf	.Lg2
+	mov	#0,r0
+	bra	.Lll
+	mov.l	r0,@r7
+.Lg2:	cmp/eq	#0,r0			! start of top row -> end of bottom row
+	bf	.Lll
+	mov	#7,r0
+	bra	.Lll
+	mov.l	r0,@r7
+.Lemit:	extu.b	r1,r1
+	shll8	r1
+	or	r1,r11
+	or	r1,r12
+.Lsave:	mov	r5,r0
+	mov.w	r0,@(S_MX,r9)
+	mov	#0,r0
+	mov.w	r0,@(S_MY,r9)
+	mov	r4,r0
+	rts
+	mov.b	r0,@(S_MFLG,r9)
+
+	.align	1
+.Lxb:	.word	0x0100
+	.align	2
+.Lgstate:	.long	G_STATE
+.Lgmode:	.long	G_MODE
+.Lgdepth:	.long	G_DEPTH
+.Lcurst:	.long	G_CUR_ST
+.Lcurvs:	.long	G_CUR_VS
+
+!@chunk ydet
+! y_detect: r6 = mouse dy this read. Once enough Y motion has been seen (T_YDET counts),
+! the device is a full mouse or trackball and menus use both axes again (unless the
+! pure-paddle flag is set). Uses r0-r2.
+y_detect:
+	mov	r6,r1
+	cmp/pz	r1
+	bt	.Ly1
+	neg	r1,r1
+.Ly1:	mov.w	@(S_YACC,r9),r0
+	add	r1,r0
+	mov.w	.Lysat,r1
+	cmp/gt	r1,r0
+	bf	.Ly2
+	mov	r1,r0
+.Ly2:	mov.w	r0,@(S_YACC,r9)
+	mov	r0,r2
+	mov.l	.Lxtune,r1
+	mov.b	@(T_FLAGS,r1),r0
+	tst	#16,r0
+	bf	.Ly3
+	mov.b	@(T_YDET,r1),r0
+	extu.b	r0,r0
+	cmp/hs	r0,r2
+	bf	.Ly3
+	mov.b	@(S_MFLG,r9),r0
+	or	#1,r0
+	mov.b	r0,@(S_MFLG,r9)
+.Ly3:	rts
+	nop
+	.align	1
+.Lysat:	.word	0x7000
+	.align	2
+.Lxtune:	.long	tune
 
 !@chunk tick
 ! Wrapper for ORIG_INPUT inside the clown movement routine (0x06010e68): r4 = player

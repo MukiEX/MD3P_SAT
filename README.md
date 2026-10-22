@@ -20,9 +20,9 @@ the second tab of the browser patcher.
 - **Browser patcher:** download [`releases/MD3_SAT_PADDLE.html`](releases/MD3_SAT_PADDLE.html)
   and open it locally (one self-contained page, no server needed), drop in your Track 01
   `.bin`, the whole `.cue` set or a `.chd`, pick options (speed, glide, pulse, magnet,
-  X pulls down) and download the patched image.
+  X pulls down, pure paddle) and download the patched image.
 - **Patch files:** `releases/patches/... [Paddle].xdelta` or `.ppf`, applied to Track 01
-  (Redump, CRC32 `97D3B2B2`). Patched Track 01 CRC32 is `1E76E4EC` with default options.
+  (Redump, CRC32 `97D3B2B2`). Patched Track 01 CRC32 is `3FD52ADD` with default options.
 
 ### Controls
 
@@ -33,6 +33,14 @@ the second tab of the browser patcher.
 | 3D pad / Mission Stick (analog) | stick X (absolute) | Y/Z JP3 check also active |
 | Digital pad + JP3 on d-pad | LEFT = phase A, RIGHT = phase B | latches on the first LEFT+RIGHT read |
 | Digital pad + JP3 on Y/Z | Y = phase A, Z = phase B | latches on the first Y+Z read; d-pad stays live |
+
+**Menus with a spinner:** the patch assumes a paddle with only an X axis, like the PS1 version.
+Spinning walks every menu: vertical lists go down/up, character grids step through every
+character in reading order, and other screens get left/right. Hold B (mouse right) or R
+(mouse middle) to turn the spin into the other direction, e.g. to change option values; a B tap
+on its own still backs out. A Shuttle Mouse switches to normal two-axis menus once it moves up
+or down a fair bit (a real mouse or trackball); the patcher's **Pure paddle** option turns that
+off.
 
 The console reads the pad once per frame, so a JP3 spinner can deliver at most about two
 edges per frame (two-edge jumps are taken in the last direction). Adapters that re-sample the
@@ -94,7 +102,7 @@ memory access, coverage). Build it from `libretro/yabause` at commit `8926b0c` w
 
 ```sh
 python3 test/mkorigstates.py      # savestates of the original disc
-python3 test/devtest.py           # 33 checks: devices, glide, magnet, pulse, menus
+python3 test/devtest.py           # 48 checks: devices, glide, magnet, pulse, spinner menus
 node test/webtest.js              # browser patcher core (CRC, CHD, LZMA, FLAC, EDC/ECC)
 python3 test/tester_check.py      # input tester disc
 ```

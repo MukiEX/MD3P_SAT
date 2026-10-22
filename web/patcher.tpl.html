@@ -169,6 +169,10 @@ td:first-child { font-weight: 700; white-space: nowrap }
             <div><strong>X pulls down</strong><p>In play, X pulls the field down instead of catching, like C on the Neo Geo. A and C still catch; menus are unchanged.</p></div>
             <label class="tog"><input type="checkbox" id="xpull" aria-label="X pulls down"><span></span></label>
           </div>
+          <div class="row">
+            <div><strong>Pure paddle</strong><p>Menus never use mouse Y. Off: a mouse counts as a spinner (X only) until it moves up or down a fair bit, then menus use both axes.</p></div>
+            <label class="tog"><input type="checkbox" id="pure" aria-label="Pure paddle"><span></span></label>
+          </div>
         </div>
       </section>
 
@@ -203,7 +207,7 @@ td:first-child { font-weight: 700; white-space: nowrap }
       </section>
       <section class="card">
         <h2>What gets written</h2>
-        <p>Only <code>0.BIN</code> changes: 13 sectors of Track 01, each with fresh Mode 1 EDC/ECC. The patched Track 01 has CRC32 <code id="pcrc">9800971B</code> with default options.</p>
+        <p>Only <code>0.BIN</code> changes: <span id="nsec">13</span> sectors of Track 01, each with fresh Mode 1 EDC/ECC. The patched Track 01 has CRC32 <code id="pcrc">9800971B</code> with default options.</p>
         <p>CHD files are decoded in full to verify Track 01 and to recompute the raw and overall SHA-1. Unchanged hunks are copied byte for byte; the changed ones are stored uncompressed.</p>
         <p class="note">Need BIN/CUE from a CHD? Convert with <code>chdman extractcd</code> first, then patch Track 01.</p>
       </section>
@@ -278,12 +282,12 @@ onmessage = (ev) => {
   let worker = null, file = null, result = null, crc = 0;
   try { worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' }))); }
   catch (e) { $('status').textContent = 'This browser cannot start a Web Worker, so the patcher cannot run here.'; $('status').className = 'status err'; }
-  const opts = { speed: 4, glide: true, pulse: true, magnet: false, xpull: false };
-  try { const s = JSON.parse(localStorage.getItem('md3sat-opts3') || 'null'); if (s) Object.assign(opts, s); } catch (e) {}
+  const opts = { speed: 4, glide: true, pulse: true, magnet: false, xpull: false, pure: false };
+  try { const s = JSON.parse(localStorage.getItem('md3sat-opts4') || 'null'); if (s) Object.assign(opts, s); } catch (e) {}
   function syncOpts() {
     document.querySelectorAll('#speed button').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.v === opts.speed)));
-    $('glide').checked = opts.glide; $('pulse').checked = opts.pulse; $('magnet').checked = opts.magnet; $('xpull').checked = opts.xpull;
-    try { localStorage.setItem('md3sat-opts3', JSON.stringify(opts)); } catch (e) {}
+    $('glide').checked = opts.glide; $('pulse').checked = opts.pulse; $('magnet').checked = opts.magnet; $('xpull').checked = opts.xpull; $('pure').checked = opts.pure;
+    try { localStorage.setItem('md3sat-opts4', JSON.stringify(opts)); } catch (e) {}
     if (result) { result = null; $('save').hidden = true; setStatus('Options changed. Patch again to apply them.'); $('bar').style.width = '0'; }
   }
   document.querySelectorAll('#speed button').forEach((b) => b.addEventListener('click', () => { opts.speed = +b.dataset.v; syncOpts(); }));
@@ -291,6 +295,7 @@ onmessage = (ev) => {
   $('magnet').addEventListener('change', (e) => { opts.magnet = e.target.checked; syncOpts(); });
   $('pulse').addEventListener('change', (e) => { opts.pulse = e.target.checked; syncOpts(); });
   $('xpull').addEventListener('change', (e) => { opts.xpull = e.target.checked; syncOpts(); });
+  $('pure').addEventListener('change', (e) => { opts.pure = e.target.checked; syncOpts(); });
   syncOpts();
 
   function setStatus(t, cls) { $('status').textContent = t; $('status').className = 'status' + (cls ? ' ' + cls : ''); }
@@ -316,7 +321,7 @@ onmessage = (ev) => {
     if (!file || !worker) return;
     $('go').disabled = true; $('save').hidden = true; result = null;
     setStatus('Starting'); setCheck('<span class="pill wait">checking</span>');
-    worker.postMessage({ file, opts: { speed: opts.speed, flags: (opts.glide ? 1 : 0) | (opts.magnet ? 2 : 0) | (opts.xpull ? 4 : 0) | (opts.pulse ? 8 : 0) } });
+    worker.postMessage({ file, opts: { speed: opts.speed, flags: (opts.glide ? 1 : 0) | (opts.magnet ? 2 : 0) | (opts.xpull ? 4 : 0) | (opts.pulse ? 8 : 0) | (opts.pure ? 16 : 0) } });
   });
   if (worker) worker.onmessage = (ev) => {
     const m = ev.data;

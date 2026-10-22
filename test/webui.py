@@ -1,17 +1,19 @@
 import sys, os, zipfile, hashlib, io
 from playwright.sync_api import sync_playwright
 R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-page_html = open(os.path.join(R, 'build', 'MD3_SAT_PADDLE.html')).read()
-doc = os.path.join(R, 'work', 'ui_test.html')
-open(doc, 'w').write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + page_html + '</body></html>')
+doc = os.path.join(R, 'build', 'MD3_SAT_PADDLE.html')   # a complete standalone page
+args = [a for a in sys.argv[1:] if not a.startswith('--')]
+toggles = [a[2:] for a in sys.argv[1:] if a.startswith('--')]   # e.g. --pure --magnet: click those switches
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/opt/pw-browsers/chromium-1194/chrome-linux/chrome' if os.path.exists('/opt/pw-browsers/chromium-1194/chrome-linux/chrome') else None)
     pg = b.new_page(accept_downloads=True, viewport={'width': 1200, 'height': 1000})
     logs = []; pg.on('console', lambda m: logs.append(m.text)); pg.on('pageerror', lambda e: logs.append('ERR ' + str(e)))
     pg.goto('file://' + doc)
+    os.makedirs(os.path.join(R, 'shots'), exist_ok=True)
+    pg.evaluate("localStorage.clear()"); pg.reload()
+    for t in toggles: pg.click('#%s' % t, force=True)
     pg.screenshot(path=os.path.join(R, 'shots', 'ui_rest.png'), full_page=True)
-    for src, opts in sys.argv[1:] and [(a, None) for a in sys.argv[1:]] or []:
-        if opts: pass
+    for src in args:
         pg.set_input_files('#pick', src)
         pg.click('#go')
         pg.wait_for_function("document.getElementById('status').className.includes('ok') || document.getElementById('status').className.includes('err')", timeout=600000)
