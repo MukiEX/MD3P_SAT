@@ -23,7 +23,7 @@ The Saturn data track is one MODE1/2352 track. The patch rewrites `0.BIN` in pla
 | Item | Value |
 | --- | --- |
 | Source image | Track 01, 5,116 sectors, 12,032,832 bytes, CRC32 97D3B2B2 |
-| Patched Track 01 | CRC32 3FD52ADD (default options) |
+| Patched Track 01 | CRC32 14B77434 (default options) |
 | Boot | IP.BIN first read address 0x06004000, `0.BIN` at LBA 29, 564,848 bytes |
 | Library | SGL 2.11 (`GFS_SGL Version 2.11 1996-03-21`), GBR = 0x060FFC00 |
 | Other tracks | CD-DA, untouched; a BIN/CUE set only needs Track 01 replaced |
@@ -105,7 +105,7 @@ As on PS1, the balloons in the column under the paddle pulse on a 12-step triang
 Outside play, motion becomes single d-pad taps OR'd into held and pressed for one read. Every screen reacts as if the pad was used.
 
 - **In play or not**: `paddle_tick` stamps the read counter; PadRead treats a port as in play while the stamp is under 3 reads old. Pausing stops the ticks, so pause menus get taps too.
-- **Spinner first**: like the PS1 version, the menus assume a paddle with only an X axis. A Shuttle Mouse counts as a spinner until its Y axis has moved 64 counts in total (`T_YDET`); from then on it is a full mouse or trackball and the menus use both axes (20 counts per tap, the larger axis wins). The count starts over when the device changes. The patcher's **Pure paddle** option (flag bit 4) never switches. A JP3 spinner is always X only.
+- **Spinner first**: like the PS1 version, the menus assume a paddle with only an X axis. A Shuttle Mouse counts as a spinner until its Y axis has moved 64 counts in total (`T_YDET`); from then on it is a full mouse or trackball and the menus use both axes (20 counts per tap, the larger axis wins). The count starts over when the device changes. **Pure paddle** (flag bit 4, on by default) never switches; turn it off in the patcher to get the switch to two axes. A JP3 spinner is always X only.
 - **X only**: 20 mouse counts or 2 JP3 edges per tap, at most one tap per read, remainder carried and clamped to 4 taps. What the tap becomes depends on the screen, read from the game's top-level state (0x0608DE74), mode cursor (0x0605A434) and menu depth (0x06087414):
 
 | Screen | +X / −X |
@@ -120,9 +120,9 @@ Outside play, motion becomes single d-pad taps OR'd into held and pressed for on
 - **Wheel**: 16 wheel units per left/right tap; up/down stay on the shift paddles. That is enough for every menu, including the 2-row character grid.
 - Checked on mode select, options, story, VS (two players, mouse + wheel), puzzle, endless and the sugoroku board.
 
-## X pulls down (option)
+## X pulls down (on by default)
 
-Like C on the Neo Geo version, X can pull the field down instead of being a fourth catch button. When flag bit 2 is set, PadRead rewrites X (0x40) as L (0x08) in held, pressed and released while that port is in play, so both the catch test in the clown routine and the pull-down test (which reads the pressed word directly) see it. Menus keep X as a confirm button. A first attempt edited only the clown routine's tick buttons and did nothing: pull-down is not decided there.
+Like C on the Neo Geo version, X pulls the field down instead of being a fourth catch button; the patcher can turn this off. When flag bit 2 is set, PadRead rewrites X (0x40) as L (0x08) in held, pressed and released while that port is in play, so both the catch test in the clown routine and the pull-down test (which reads the pressed word directly) see it. Menus keep X as a confirm button. A first attempt edited only the clown routine's tick buttons and did nothing: pull-down is not decided there.
 
 ## Finding room for the code
 
@@ -141,7 +141,7 @@ GNU as (sh-elf, `--isa=sh2`) builds each chunk at offset 0; there is no ld. `bui
 
 ## Tuning block
 
-16 bytes after the tag `SDCF` (0x0603EB6C in this build; LBA 146, offset 876 in Track 01): menu steps for mouse/wheel/JP3, relative hysteresis, settle ticks, mouse speed, JP3 units, absolute hysteresis, wheel range, stick range and dead zone, in-play window, flags (bit 0 glide, bit 1 magnet, bit 2 X pulls down, bit 3 pulse, bit 4 pure paddle; default 9 = glide + pulse), and the mouse Y-detection threshold (64 counts). The 12-step pulse ramp follows the tuning block. The browser patcher writes the speed and flag bytes and rebuilds that sector's EDC/ECC.
+16 bytes after the tag `SDCF` (0x0603EB6C in this build; LBA 146, offset 876 in Track 01): menu steps for mouse/wheel/JP3, relative hysteresis, settle ticks, mouse speed, JP3 units, absolute hysteresis, wheel range, stick range and dead zone, in-play window, flags (bit 0 glide, bit 1 magnet, bit 2 X pulls down, bit 3 pulse, bit 4 pure paddle; default 29 = glide + pulse + X pulls down + pure paddle), and the mouse Y-detection threshold (64 counts). The 12-step pulse ramp follows the tuning block. The browser patcher writes the speed and flag bytes and rebuilds that sector's EDC/ECC.
 
 ## SH-2 pitfalls
 
@@ -175,7 +175,7 @@ GNU as (sh-elf, `--isa=sh2`) builds each chunk at offset 0; there is no ld. `bui
 | `tools/make_ppf.py`, xdelta3 | PPF 3.0 and xdelta against Track 01 |
 | `tools/chd.py`, `tools/c/chdtool` | CHD v5 fixture writer (cdlz/cdzl/cdfl, SELF dedupe, Huffman+RLE map); libchdr reader with block CRCs on |
 | `tools/release.sh` | the full build |
-| `test/devtest.py` | 48 checks: pad unchanged, mouse travel/speed/buttons/re-centre, magnet, glide on/off, wheel, 3D pad, JP3 on d-pad and Y/Z (digital and 3D pad), X pull-down, pulse (one column, ramps, follows the paddle, off for pads and when disabled), spinner menus (vertical lists, both character grids across row ends, 1-row grids, B/R modifier, B on release, Y detection, pure paddle, JP3), wheel menu taps |
+| `test/devtest.py` | 49 checks: pad unchanged, mouse travel/speed/buttons/re-centre, magnet, glide on/off, wheel, 3D pad, JP3 on d-pad and Y/Z (digital and 3D pad), X pull-down, pulse (one column, ramps, follows the paddle, off for pads and when disabled), spinner menus (vertical lists, both character grids across row ends, 1-row grids, B/R modifier, B on release, Y detection, pure paddle, JP3), wheel menu taps |
 | `test/webtest.js`, `test/webui.py` | patch core in Node; the page end to end in headless Chromium |
 
 ## Browser patcher

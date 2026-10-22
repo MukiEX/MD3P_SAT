@@ -99,7 +99,7 @@ tune:
 	.byte	0x60		! T_ARANGE
 	.byte	0x28		! T_ADEAD
 	.byte	3		! T_INPLAY
-	.byte	9		! T_FLAGS (glide + pulse on, magnet off, X pull-down off, Y auto)
+	.byte	29		! T_FLAGS (glide, pulse, X pull-down, pure paddle on; magnet off)
 	.byte	64		! T_YDET
 	.byte	0
 g_count:

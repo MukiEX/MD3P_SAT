@@ -153,7 +153,9 @@ r.run(10); check('JP3 on Y/Z of a 3D pad', r.r32(COL) == 5, r.r32(COL))
 # ---- X as pull-down (flag bit 2)
 def cells(): return sum(1 for b in r.read(P1 + 0x337c, 24 * 7) if b != 36)
 game(); r.press(0, ['B'], 2, 30); n0 = r.r32(P1 + 0x20)
-r.press(0, ['X'], 2, 30); check('X catches by default', r.r32(P1 + 0x20) > n0, (n0, r.r32(P1 + 0x20)))
+check('defaults: glide, pulse, X pulls down, pure paddle', r.r8(TUNE + 13) == 29, r.r8(TUNE + 13))
+game(); r.w8(TUNE + 13, 9); r.press(0, ['B'], 2, 30); n0 = r.r32(P1 + 0x20)
+r.press(0, ['X'], 2, 30); check('X catches with the option off', r.r32(P1 + 0x20) > n0, (n0, r.r32(P1 + 0x20)))
 # with the option, X does exactly what the native pull-down (L) does, and no longer catches
 game(); r.w8(TUNE + 13, 3); r.run(60); snap = r.save_state(); c0 = cells()
 r.press(0, ['L'], 2, 40); via_l = (cells(), r.r32(P1 + 0x20), bytes(r.read(P1 + 0x337c, 24 * 7)))
@@ -171,6 +173,7 @@ def menu(dev=DEV_MOUSE, pad=(), port=0):
     for p_ in r.ports: p_.buttons = set(); p_.mbtn = set(); p_.mx = p_.my = 0
     r.set_device(0, DEV_JOYPAD); r.set_device(1, DEV_JOYPAD); r.run(3)
     for b_, w_ in pad: r.press(0, [b_], 3, w_)
+    r.w8(TUNE + 13, 9)                         # Y auto-detect (pure paddle off) unless a test sets it
     r.set_device(port, dev); r.run(3)
 def spin(n, port=0, per=1):
     """move the mouse until the game-visible X has changed by n counts (the core scales

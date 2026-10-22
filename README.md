@@ -22,7 +22,7 @@ the second tab of the browser patcher.
   `.bin`, the whole `.cue` set or a `.chd`, pick options (speed, glide, pulse, magnet,
   X pulls down, pure paddle) and download the patched image.
 - **Patch files:** `releases/patches/... [Paddle].xdelta` or `.ppf`, applied to Track 01
-  (Redump, CRC32 `97D3B2B2`). Patched Track 01 CRC32 is `3FD52ADD` with default options.
+  (Redump, CRC32 `97D3B2B2`). Patched Track 01 CRC32 is `14B77434` with default options.
 
 ### Controls
 
@@ -38,9 +38,12 @@ the second tab of the browser patcher.
 Spinning walks every menu: vertical lists go down/up, character grids step through every
 character in reading order, and other screens get left/right. Hold B (mouse right) or R
 (mouse middle) to turn the spin into the other direction, e.g. to change option values; a B tap
-on its own still backs out. A Shuttle Mouse switches to normal two-axis menus once it moves up
-or down a fair bit (a real mouse or trackball); the patcher's **Pure paddle** option turns that
-off.
+on its own still backs out. **Pure paddle** is on by default and keeps the menus X only. Turn it
+off in the patcher if you use a real mouse or trackball: a Shuttle Mouse then switches to normal
+two-axis menus once it moves up or down a fair bit.
+
+**X pulls down** is also on by default: in play X pulls the field down (like C on the Neo Geo),
+while A and C catch. Turn it off to get X back as a catch button.
 
 The console reads the pad once per frame, so a JP3 spinner can deliver at most about two
 edges per frame (two-edge jumps are taken in the last direction). Adapters that re-sample the
@@ -102,7 +105,7 @@ memory access, coverage). Build it from `libretro/yabause` at commit `8926b0c` w
 
 ```sh
 python3 test/mkorigstates.py      # savestates of the original disc
-python3 test/devtest.py           # 48 checks: devices, glide, magnet, pulse, spinner menus
+python3 test/devtest.py           # 49 checks: devices, glide, magnet, pulse, spinner menus
 node test/webtest.js              # browser patcher core (CRC, CHD, LZMA, FLAC, EDC/ECC)
 python3 test/tester_check.py      # input tester disc
 ```

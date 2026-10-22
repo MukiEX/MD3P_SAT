@@ -162,16 +162,16 @@ td:first-child { font-weight: 700; white-space: nowrap }
             <label class="tog"><input type="checkbox" id="pulse" checked aria-label="Pulse target column"><span></span></label>
           </div>
           <div class="row">
-            <div><strong>Magnet</strong><p>Half mouse speed over a column you can catch from; wheels and sticks get 4× hysteresis there.</p></div>
-            <label class="tog"><input type="checkbox" id="magnet" aria-label="Magnet"><span></span></label>
-          </div>
-          <div class="row">
             <div><strong>X pulls down</strong><p>In play, X pulls the field down instead of catching, like C on the Neo Geo. A and C still catch; menus are unchanged.</p></div>
-            <label class="tog"><input type="checkbox" id="xpull" aria-label="X pulls down"><span></span></label>
+            <label class="tog"><input type="checkbox" id="xpull" checked aria-label="X pulls down"><span></span></label>
           </div>
           <div class="row">
             <div><strong>Pure paddle</strong><p>Menus never use mouse Y. Off: a mouse counts as a spinner (X only) until it moves up or down a fair bit, then menus use both axes.</p></div>
-            <label class="tog"><input type="checkbox" id="pure" aria-label="Pure paddle"><span></span></label>
+            <label class="tog"><input type="checkbox" id="pure" checked aria-label="Pure paddle"><span></span></label>
+          </div>
+          <div class="row">
+            <div><strong>Magnet</strong><p>Half mouse speed over a column you can catch from; wheels and sticks get 4× hysteresis there.</p></div>
+            <label class="tog"><input type="checkbox" id="magnet" aria-label="Magnet"><span></span></label>
           </div>
         </div>
       </section>
@@ -282,12 +282,12 @@ onmessage = (ev) => {
   let worker = null, file = null, result = null, crc = 0;
   try { worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' }))); }
   catch (e) { $('status').textContent = 'This browser cannot start a Web Worker, so the patcher cannot run here.'; $('status').className = 'status err'; }
-  const opts = { speed: 4, glide: true, pulse: true, magnet: false, xpull: false, pure: false };
-  try { const s = JSON.parse(localStorage.getItem('md3sat-opts4') || 'null'); if (s) Object.assign(opts, s); } catch (e) {}
+  const opts = { speed: 4, glide: true, pulse: true, magnet: false, xpull: true, pure: true };
+  try { const s = JSON.parse(localStorage.getItem('md3sat-opts5') || 'null'); if (s) Object.assign(opts, s); } catch (e) {}
   function syncOpts() {
     document.querySelectorAll('#speed button').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.v === opts.speed)));
     $('glide').checked = opts.glide; $('pulse').checked = opts.pulse; $('magnet').checked = opts.magnet; $('xpull').checked = opts.xpull; $('pure').checked = opts.pure;
-    try { localStorage.setItem('md3sat-opts4', JSON.stringify(opts)); } catch (e) {}
+    try { localStorage.setItem('md3sat-opts5', JSON.stringify(opts)); } catch (e) {}
     if (result) { result = null; $('save').hidden = true; setStatus('Options changed. Patch again to apply them.'); $('bar').style.width = '0'; }
   }
   document.querySelectorAll('#speed button').forEach((b) => b.addEventListener('click', () => { opts.speed = +b.dataset.v; syncOpts(); }));
