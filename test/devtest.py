@@ -274,6 +274,24 @@ for i in range(40):
 r.ports[0].mx = 0; r.run(4)
 check('puzzle grid (1 row): X sends RIGHT', taps == {0x8000} and r.r32(DEPTH) == 2, ([hex(t) for t in taps], r.r32(DEPTH)))
 
+# VS character select: a JP3 spinner on port 2 walks P2's cursor (Y/Z wiring, then the
+# real-pad cross wiring found by two quick flips)
+for name_, seq_, start_ in (('Y/Z', [set(), {'Y'}, {'Y', 'Z'}, {'Z'}], 2),
+                            ('LEFT/UP', [set(), {'LEFT'}, {'LEFT', 'UP'}, {'UP'}], None)):
+    menu(dev=DEV_JOYPAD, pad=[('DOWN', 30), ('A', 150), ('A', 150), ('A', 60)])
+    if start_ is not None:
+        r.ports[1].buttons = seq_[start_]; r.run(2); ph = start_
+    else:
+        for b_, n_ in (({'LEFT'}, 2), ({'UP'}, 1), ({'LEFT'}, 2)): r.ports[1].buttons = b_; r.run(n_)
+        ph = 1
+    c1 = r.r32(CUR_VS + 4); cur = []
+    for k in range(3):
+        for i in range(2): ph = (ph + 1) % 4; r.ports[1].buttons = seq_[ph]; r.run(2)
+        r.run(6); cur.append(r.r32(CUR_VS + 4))
+    r.ports[1].buttons = set()
+    check('VS grid: P2 JP3 (%s) walks P2 cursor in reading order' % name_,
+          cur == [(c1 + k + 1) % 16 for k in range(3)] and r.r8(PS + 32) == 3, (c1, cur, r.r8(PS + 32 + 2)))
+
 # options: rows by X, values with B held; B alone still backs out
 menu(pad=[('UP', 30), ('A', 150)])
 spin(40); row, mus = r.r32(OPT_ROW), r.r32(OPT_MUSIC)

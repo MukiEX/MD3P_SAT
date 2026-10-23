@@ -177,7 +177,7 @@ GNU as (sh-elf, `--isa=sh2`) builds each chunk at offset 0; there is no ld. `bui
 | `tools/make_ppf.py`, xdelta3 | PPF 3.0 and xdelta against Track 01 |
 | `tools/chd.py`, `tools/c/chdtool` | CHD v5 fixture writer (cdlz/cdzl/cdfl, SELF dedupe, Huffman+RLE map); libchdr reader with block CRCs on |
 | `tools/release.sh` | the full build |
-| `test/devtest.py` | 57 checks: pad unchanged, mouse travel/speed/buttons/re-centre, magnet, glide on/off, wheel, 3D pad, JP3 on d-pad, Y/Z (digital and 3D pad) and across the d-pad pairs (both corners, flip auto-detection, normal d-pad use never latching), X pull-down, pulse (one column, ramps, follows the paddle, off for pads and when disabled), spinner menus (vertical lists, both character grids across row ends, 1-row grids, B/R modifier, B on release, Y detection, pure paddle, JP3), wheel menu taps |
+| `test/devtest.py` | 59 checks: pad unchanged, mouse travel/speed/buttons/re-centre, magnet, glide on/off, wheel, 3D pad, JP3 on d-pad, Y/Z (digital and 3D pad) and across the d-pad pairs (both corners, flip auto-detection, normal d-pad use never latching), X pull-down, pulse (one column, ramps, follows the paddle, off for pads and when disabled), spinner menus (vertical lists, both character grids across row ends, P2 mouse and JP3 in VS select, 1-row grids, B/R modifier, B on release, Y detection, pure paddle, JP3), wheel menu taps |
 | `test/webtest.js`, `test/webui.py` | patch core in Node; the page end to end in headless Chromium |
 
 ## Browser patcher

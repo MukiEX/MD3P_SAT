@@ -111,7 +111,7 @@ memory access, coverage). Build it from `libretro/yabause` at commit `8926b0c` w
 
 ```sh
 python3 test/mkorigstates.py      # savestates of the original disc
-python3 test/devtest.py           # 57 checks: devices, glide, magnet, pulse, spinner menus
+python3 test/devtest.py           # 59 checks: devices, glide, magnet, pulse, spinner menus
 node test/webtest.js              # browser patcher core (CRC, CHD, LZMA, FLAC, EDC/ECC)
 python3 test/tester_check.py      # input tester disc
 ```
