@@ -51,6 +51,8 @@ inside a pad must go across the pairs (e.g. LEFT and UP); a quick spin turns it 
 LEFT/RIGHT wiring is for USB-to-Saturn adapters. Use a detentless encoder: a detented one snaps through
 most of each click between two reads.
 
+![Rotary encoder in place of the d-pad: A to LEFT, B to UP, common to GND, push switch to START](docs/encoder-pad-wiring.svg)
+
 The console reads the pad once per frame, so a JP3 spinner can deliver at most about two
 edges per frame (two-edge jumps are taken in the last direction). Adapters that re-sample the
 signal (USB to Saturn converters) lower that further; see the write-up.

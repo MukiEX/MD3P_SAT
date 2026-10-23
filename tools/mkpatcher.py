@@ -12,6 +12,10 @@ md = open(os.path.join(R, 'docs', 'TECHNICAL.md')).read()
 md = _re.sub(r'^# .*\n+', '', md, count=1)            # the page header already names it
 doc = markdown.markdown(md, extensions=['tables', 'fenced_code'])
 doc = doc.replace('<table>', '<div class="tw"><table>').replace('</table>', '</table></div>')
+import base64 as _b64                                  # images in the write-up go inline
+for _m in set(_re.findall(r'src="([\w.-]+\.svg)"', doc)):
+    _d = _b64.b64encode(open(os.path.join(R, 'docs', _m), 'rb').read()).decode()
+    doc = doc.replace('src="%s"' % _m, 'src="data:image/svg+xml;base64,%s" style="width:100%%;height:auto"' % _d)
 s = s.replace('/*DOC*/', doc)
 s = s.replace('/*CORE*/', core).replace('/*DATA*/', data)
 import json, re
