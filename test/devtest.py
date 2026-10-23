@@ -165,6 +165,25 @@ for wiring in (('LEFT', 'UP'), ('RIGHT', 'DOWN')):
 game()                                         # option off: a diagonal is just a diagonal
 r.ports[0].buttons = {'LEFT', 'UP'}; r.run(2); r.ports[0].buttons = set(); r.run(10)
 check('d-pad diagonal does not latch without the option', r.r8(PS + 2) == 0 and r.r32(COL) == 2, (r.r8(PS + 2), r.r32(COL)))
+# auto-detection without the option: two frame-perfect LEFT <-> UP flips within a second
+def presses(seq):
+    for b_, n_ in seq: r.ports[0].buttons = set(b_); r.run(n_)
+game()
+presses([(['LEFT'], 3), ([], 3), (['UP'], 3), ([], 3), (['LEFT'], 3), (['LEFT', 'UP'], 2), (['UP'], 3), ([], 6)])
+check('normal d-pad use (neutral/diagonal between) does not latch', r.r8(PS + 2) == 0, r.r8(PS + 2))
+presses([(['LEFT'], 2), (['UP'], 1), ([], 40), (['LEFT'], 1), ([], 40), (['UP'], 2), ([], 30)])
+check('one flip, or flips a second apart, do not latch', r.r8(PS + 2) == 0, r.r8(PS + 2))
+game(); c0 = r.r32(COL)
+presses([(['LEFT'], 2), (['UP'], 1), (['LEFT'], 2)])         # input shows up one read later
+latched = r.r8(PS + 2)
+seq = [set(), {'LEFT'}, {'LEFT', 'UP'}, {'UP'}]; ph = 1    # now at A-only
+c1 = r.r32(COL)
+for i in range(8): ph = (ph + 1) % 4; r.ports[0].buttons = seq[ph]; r.run(1)
+r.run(10); a = r.r32(COL)
+for i in range(4): ph = (ph - 1) % 4; r.ports[0].buttons = seq[ph]; r.run(1)
+r.run(10); b = r.r32(COL)
+check('two quick flips latch the cross wiring; then 4 edges per column', latched == 3 and (a - c1, b - a) == (2, -1), (latched, c0, c1, a, b))
+r.ports[0].buttons = set()
 
 # ---- X as pull-down (flag bit 2)
 def cells(): return sum(1 for b in r.read(P1 + 0x337c, 24 * 7) if b != 36)

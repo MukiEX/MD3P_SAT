@@ -183,6 +183,8 @@ pad_read:
 	mov.w	r0,@(S_MY,r9)
 	mov.w	r0,@(S_MBP,r9)
 	mov.b	r0,@(S_MFLG,r9)
+	mov.b	r0,@(S_PH,r9)
+	mov.b	r0,@(S_LDIR,r9)
 	mov.w	r0,@(S_YACC,r9)
 	mov	#-1,r0
 	mov.w	r0,@(S_POS,r9)
@@ -492,21 +494,16 @@ pr_jp3:
 	mov	#2,r0			! latched on Y/Z
 	bra	.Lpd_lat
 	nop
-.Lpdx:	! option: a real Saturn pad drops off the bus while LEFT+RIGHT or UP+DOWN are held
-	! (its ID is read from those pairs OR'd), so the spinner goes across the pairs:
-	! phase A on LEFT or RIGHT, phase B on UP or DOWN. Latch on the first diagonal.
-	mov.l	.Ltune2,r1
-	mov.b	@(T_FLAGS,r1),r0
-	tst	#32,r0
+.Lpdx:	! across the d-pad pairs (real pads): auto-detected from two frame-perfect
+	! LEFT/RIGHT <-> UP/DOWN flips, or latched on the first diagonal with flag bit 5
+	mov.l	.Ljp3x,r0
+	jsr	@r0
+	nop
+	tst	r0,r0
 	bt	.Lpw_ret
-	tst	r4,r4			! a horizontal line held?
-	bt	.Lpw_ret
-	mov	r11,r0
-	shlr8	r0
-	shlr2	r0
-	shlr2	r0
-	tst	#3,r0			! and a vertical one?
-	bt	.Lpw_ret
+	mov	#3,r0
+	bra	.Lpd1
+	mov.b	r0,@(S_LATCH,r9)
 	mov	#3,r0			! latched across the d-pad pairs
 .Lpd_lat:
 	mov.b	r0,@(S_LATCH,r9)
@@ -603,8 +600,81 @@ pr_jp3:
 .Lwf000: .word	0xF000
 	.align	2
 .Ltune2:	.long	tune
+.Ljp3x:		.long	jp3_cross
 .Lmenutap_b:	.long	menu_tap
 .Lstore_a:	.long	pad_read_store
+
+!@chunk jp3x
+! jp3_cross: before a JP3 latch, watch the d-pad as a spinner wired across the pairs
+! (A = LEFT|RIGHT, B = UP|DOWN; a real Saturn pad drops off the bus while LEFT+RIGHT or
+! UP+DOWN are held, its ID being read from those lines OR'd in pairs).
+! A frame-perfect flip from A-only to B-only (or back) is two edges in one read: easy for an
+! encoder, very hard for a thumb on the rocker, which shows a diagonal or neutral frame in
+! between. Two flips within 60 reads latch. With flag bit 5 the first diagonal latches.
+! Before the latch S_PH holds the last A/B state and S_LDIR the flip window.
+! In: r9 state, r11 held. Out: r0 = 1 to latch (S_PH then holds the phase), else 0.
+jp3_cross:
+	mov	r11,r0
+	shlr8	r0
+	shlr2	r0
+	shlr2	r0			! bits 0 UP, 1 DOWN, 2 LEFT, 3 RIGHT
+	mov	#0,r5
+	tst	#12,r0
+	bt	.Lc1
+	mov	#1,r5			! A
+.Lc1:	tst	#3,r0
+	bt	.Lc2
+	add	#2,r5			! B
+.Lc2:	mov.b	@(S_PH,r9),r0
+	and	#3,r0
+	mov	r0,r6			! previous A/B state
+	mov	r5,r0
+	mov.b	r0,@(S_PH,r9)
+	mov.l	.Lctune,r1
+	mov.b	@(T_FLAGS,r1),r0
+	tst	#32,r0
+	bt	.Lflip
+	mov	r5,r0
+	cmp/eq	#3,r0
+	bf	.Lflip
+	mov	#2,r0			! diagonal: phase of A=1,B=1
+	bra	.Lyes
+	mov.b	r0,@(S_PH,r9)
+.Lflip:	mov	r5,r0
+	xor	r6,r0
+	cmp/eq	#3,r0			! both lines changed ...
+	bf	.Lnof
+	mov	r5,r0
+	cmp/eq	#1,r0			! ... between A-only and B-only
+	bt	.Lf1
+	cmp/eq	#2,r0
+	bf	.Lnof
+.Lf1:	mov.b	@(S_LDIR,r9),r0
+	tst	r0,r0
+	bt	.Larm
+	mov	r5,r0			! second flip in the window: latch
+	cmp/eq	#1,r0
+	mov	#1,r0			! phase of A-only
+	bt	.Lf2
+	mov	#3,r0			! phase of B-only
+.Lf2:	mov.b	r0,@(S_PH,r9)
+.Lyes:	mov	#0,r0
+	mov.b	r0,@(S_LDIR,r9)
+	rts
+	mov	#1,r0
+.Larm:	mov	#60,r0
+	mov.b	r0,@(S_LDIR,r9)
+	rts
+	mov	#0,r0
+.Lnof:	mov.b	@(S_LDIR,r9),r0
+	tst	r0,r0
+	bt	.Lno
+	add	#-1,r0
+	mov.b	r0,@(S_LDIR,r9)
+.Lno:	rts
+	mov	#0,r0
+	.align	2
+.Lctune:	.long	tune
 
 !@chunk prwheel
 ! Arcade Racer branch of pad_read (same entry contract as the prdev branches).

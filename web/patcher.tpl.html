@@ -170,7 +170,7 @@ td:first-child { font-weight: 700; white-space: nowrap }
             <label class="tog"><input type="checkbox" id="pure" checked aria-label="Pure paddle"><span></span></label>
           </div>
           <div class="row">
-            <div><strong>Spinner on a pad's d-pad</strong><p>For a Saturn pad with an encoder in place of the d-pad: phase A on LEFT or RIGHT, phase B on UP or DOWN. A real pad drops off the bus while LEFT+RIGHT or UP+DOWN are held, so the spinner has to go across the pairs. Latches on the first diagonal; leave off for normal pads.</p></div>
+            <div><strong>Spinner on a pad's d-pad: latch on first diagonal</strong><p>An encoder inside a real pad goes across the d-pad pairs (phase A on LEFT or RIGHT, phase B on UP or DOWN; a real pad drops off the bus while LEFT+RIGHT or UP+DOWN are held). It is found automatically after a quick spin. This switch latches it on the first diagonal instead; leave off for normal pads.</p></div>
             <label class="tog"><input type="checkbox" id="dpadx" aria-label="Spinner on a pad's d-pad"><span></span></label>
           </div>
           <div class="row">
@@ -203,7 +203,7 @@ td:first-child { font-weight: 700; white-space: nowrap }
             <tr><td>Arcade Racer</td><td>Wheel angle picks the column. Shift paddles stay up/down; in menus the wheel steps left/right.</td></tr>
             <tr><td>3D Control Pad</td><td>Analog mode: the stick picks the column; touching the d-pad hands control back.</td></tr>
             <tr><td>Mission Stick</td><td>Analog mode, same as the 3D pad.</td></tr>
-            <tr><td>JP3 spinner</td><td>Quadrature on d-pad left/right (adapters), on Y (phase A) and Z (phase B) for adapters that clean the d-pad, or across the d-pad pairs (LEFT/RIGHT = A, UP/DOWN = B) for an encoder inside a real pad, with that option on. Detected the first time both lines read pressed; 4 edges per column. On Y/Z the d-pad keeps working.</td></tr>
+            <tr><td>JP3 spinner</td><td>Quadrature on d-pad left/right (adapters), on Y (phase A) and Z (phase B) for adapters that clean the d-pad, or across the d-pad pairs (LEFT/RIGHT = A, UP/DOWN = B) for an encoder inside a real pad: give it a quick spin and it latches. Detected the first time both lines read pressed; 4 edges per column. On Y/Z the d-pad keeps working.</td></tr>
             <tr><td>Control Pad</td><td>Unchanged.</td></tr>
           </tbody>
         </table>

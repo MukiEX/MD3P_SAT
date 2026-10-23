@@ -22,7 +22,7 @@ the second tab of the browser patcher.
   `.bin`, the whole `.cue` set or a `.chd`, pick options (speed, glide, pulse, magnet,
   X pulls down, pure paddle) and download the patched image.
 - **Patch files:** `releases/patches/... [Paddle].xdelta` or `.ppf`, applied to Track 01
-  (Redump, CRC32 `97D3B2B2`). Patched Track 01 CRC32 is `67545FB9` with default options.
+  (Redump, CRC32 `97D3B2B2`). Patched Track 01 CRC32 is `E29E1022` with default options.
 
 ### Controls
 
@@ -32,7 +32,7 @@ the second tab of the browser patcher.
 | Arcade Racer | wheel angle (absolute) | the wheel's own buttons |
 | 3D pad / Mission Stick (analog) | stick X (absolute) | Y/Z JP3 check also active |
 | Digital pad + JP3 on d-pad (adapters) | LEFT = phase A, RIGHT = phase B | latches on the first LEFT+RIGHT read |
-| Encoder in a real pad (option) | LEFT or RIGHT = phase A, UP or DOWN = phase B | turn on **Spinner on a pad's d-pad**; latches on the first diagonal |
+| Encoder in a real pad | LEFT or RIGHT = phase A, UP or DOWN = phase B | give it a quick spin: latches after two frame-perfect LEFT↔UP flips within a second |
 | Digital pad + JP3 on Y/Z | Y = phase A, Z = phase B | latches on the first Y+Z read; d-pad stays live |
 
 **Menus with a spinner:** the patch assumes a paddle with only an X axis, like the PS1 version.
@@ -47,8 +47,8 @@ two-axis menus once it moves up or down a fair bit.
 while A and C catch. Turn it off to get X back as a catch button.
 
 A real Saturn pad disconnects while LEFT+RIGHT (or UP+DOWN) are held, so an encoder wired
-inside a pad must go across the pairs (e.g. LEFT and UP) with that option on; the LEFT/RIGHT
-wiring is for USB-to-Saturn adapters. Use a detentless encoder: a detented one snaps through
+inside a pad must go across the pairs (e.g. LEFT and UP); a quick spin turns it on. The
+LEFT/RIGHT wiring is for USB-to-Saturn adapters. Use a detentless encoder: a detented one snaps through
 most of each click between two reads.
 
 The console reads the pad once per frame, so a JP3 spinner can deliver at most about two
@@ -111,7 +111,7 @@ memory access, coverage). Build it from `libretro/yabause` at commit `8926b0c` w
 
 ```sh
 python3 test/mkorigstates.py      # savestates of the original disc
-python3 test/devtest.py           # 54 checks: devices, glide, magnet, pulse, spinner menus
+python3 test/devtest.py           # 57 checks: devices, glide, magnet, pulse, spinner menus
 node test/webtest.js              # browser patcher core (CRC, CHD, LZMA, FLAC, EDC/ECC)
 python3 test/tester_check.py      # input tester disc
 ```
