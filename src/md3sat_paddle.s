@@ -79,7 +79,8 @@
 	.equ	T_ADEAD,	11	! analog engage threshold
 	.equ	T_INPLAY,	12	! reads since the last tick that still count as "in play"
 	.equ	T_FLAGS,	13	! bit0 glide, bit1 magnet, bit2 X = pull-down, bit3 pulse target column,
-				! bit4 pure paddle (never use mouse Y)
+				! bit4 pure paddle (never use mouse Y),
+				! bit5 real-pad d-pad spinner (phase A on LEFT/RIGHT, phase B on UP/DOWN)
 	.equ	T_YDET,		14	! mouse |dy| counts before menus also use the Y axis
 
 !@chunk data
@@ -422,34 +423,6 @@ pr_mouse:
 ! Device branches of pad_read. Entered by jmp with pad_read's registers live
 ! (r8 player, r9 state, r10 entry, r11/r12/r13 held/pressed/released, r14 in play);
 ! each one jumps back to pad_read's store step (pr_store).
-pr_wheel:
-	mov	#4,r0
-	mov.b	r0,@(S_TYPE,r9)
-	mov.b	@(8,r10),r0
-	extu.b	r0,r4
-	mov	r4,r0
-	mov.b	r0,@(S_AXIS,r9)
-	mov.b	@(S_LAXIS,r9),r0
-	extu.b	r0,r5
-	mov	r4,r0
-	mov.b	r0,@(S_LAXIS,r9)
-	sub	r5,r4			! wheel delta
-	! the Arcade Racer reports LEFT/RIGHT from the wheel angle: never pass those on
-	mov.w	.Lwc000,r1
-	not	r1,r1
-	and	r1,r11
-	and	r1,r12
-	and	r1,r13
-	tst	r14,r14
-	bf	.Lpw_ret
-	mov	r4,r5
-	mov	#0,r6
-	mov.l	.Ltune2,r1
-	mov.b	@(T_WSTEP,r1),r0
-	extu.b	r0,r7
-	mov.l	.Lmenutap_b,r0
-	jsr	@r0
-	nop
 .Lpw_ret:
 	mov.l	.Lstore_a,r0
 	jmp	@r0
@@ -515,14 +488,48 @@ pr_jp3:
 	nop
 .Lpd0:	mov	r3,r0
 	cmp/eq	#3,r0
-	bf	.Lpw_ret
+	bf	.Lpdx
 	mov	#2,r0			! latched on Y/Z
+	bra	.Lpd_lat
+	nop
+.Lpdx:	! option: a real Saturn pad drops off the bus while LEFT+RIGHT or UP+DOWN are held
+	! (its ID is read from those pairs OR'd), so the spinner goes across the pairs:
+	! phase A on LEFT or RIGHT, phase B on UP or DOWN. Latch on the first diagonal.
+	mov.l	.Ltune2,r1
+	mov.b	@(T_FLAGS,r1),r0
+	tst	#32,r0
+	bt	.Lpw_ret
+	tst	r4,r4			! a horizontal line held?
+	bt	.Lpw_ret
+	mov	r11,r0
+	shlr8	r0
+	shlr2	r0
+	shlr2	r0
+	tst	#3,r0			! and a vertical one?
+	bt	.Lpw_ret
+	mov	#3,r0			! latched across the d-pad pairs
 .Lpd_lat:
 	mov.b	r0,@(S_LATCH,r9)
 	mov	#2,r0			! phase of A=1,B=1
 	mov.b	r0,@(S_PH,r9)
 .Lpd1:	mov.b	@(S_LATCH,r9),r0
-	cmp/eq	#2,r0
+	cmp/eq	#3,r0
+	bf	.Lpd1b
+	mov	r11,r0			! A = LEFT|RIGHT, B = UP|DOWN
+	shlr8	r0
+	shlr2	r0
+	shlr2	r0			! bits 0 UP, 1 DOWN, 2 LEFT, 3 RIGHT
+	mov	#0,r4
+	tst	#12,r0
+	bt	.Lpx1
+	mov	#1,r4
+.Lpx1:	tst	#3,r0
+	bt	.Lpx2
+	add	#2,r4
+.Lpx2:	mov.w	.Lwf000,r3		! strip the whole d-pad
+	bra	.Lpd_go
+	extu.w	r3,r3
+.Lpd1b:	cmp/eq	#2,r0
 	bf	.Lpd_dp
 	mov	r3,r4			! decode Y/Z
 	mov	#0x30,r3		! and strip Y/Z
@@ -593,10 +600,53 @@ pr_jp3:
 	nop
 	.align	1
 .Lwc000: .word	0xC000
+.Lwf000: .word	0xF000
 	.align	2
 .Ltune2:	.long	tune
 .Lmenutap_b:	.long	menu_tap
 .Lstore_a:	.long	pad_read_store
+
+!@chunk prwheel
+! Arcade Racer branch of pad_read (same entry contract as the prdev branches).
+pr_wheel:
+	mov	#4,r0
+	mov.b	r0,@(S_TYPE,r9)
+	mov.b	@(8,r10),r0
+	extu.b	r0,r4
+	mov	r4,r0
+	mov.b	r0,@(S_AXIS,r9)
+	mov.b	@(S_LAXIS,r9),r0
+	extu.b	r0,r5
+	mov	r4,r0
+	mov.b	r0,@(S_LAXIS,r9)
+	sub	r5,r4			! wheel delta
+	! the Arcade Racer reports LEFT/RIGHT from the wheel angle: never pass those on
+	mov.w	.Lwhc000,r1
+	not	r1,r1
+	and	r1,r11
+	and	r1,r12
+	and	r1,r13
+	tst	r14,r14
+	bf	.Lpwh_ret
+	mov	r4,r5
+	mov	#0,r6
+	mov.l	.Lwtune,r1
+	mov.b	@(T_WSTEP,r1),r0
+	extu.b	r0,r7
+	mov.l	.Lwmenutap,r0
+	jsr	@r0
+	nop
+.Lpwh_ret:
+	mov.l	.Lwstore,r0
+	jmp	@r0
+	nop
+
+	.align	1
+.Lwhc000: .word	0xC000
+	.align	2
+.Lwtune:	.long	tune
+.Lwmenutap:	.long	menu_tap
+.Lwstore:	.long	pad_read_store
 
 !@chunk menutap
 ! menu_tap: r5 = dx, r6 = dy, r7 = counts per tap; r9 = state; may OR one d-pad tap into

@@ -150,6 +150,22 @@ r.ports[0].buttons = {'Y', 'Z'}; r.run(2); ph = 2
 for i in range(8): ph = (ph + 1) % 4; r.ports[0].buttons = seq[ph]; r.run(1)
 r.run(10); check('JP3 on Y/Z of a 3D pad', r.r32(COL) == 5, r.r32(COL))
 
+# ---- JP3 across the d-pad pairs (flag bit 5): A on LEFT/RIGHT, B on UP/DOWN (real pads)
+for wiring in (('LEFT', 'UP'), ('RIGHT', 'DOWN')):
+    game(); r.w8(TUNE + 13, 29 | 32)
+    a_, b_ = wiring
+    seq = [set(), {a_}, {a_, b_}, {b_}]
+    r.ports[0].buttons = {a_, b_}; r.run(2); ph = 2
+    for i in range(8): ph = (ph + 1) % 4; r.ports[0].buttons = seq[ph]; r.run(1)
+    r.run(10); a = r.r32(COL)
+    for i in range(4): ph = (ph - 1) % 4; r.ports[0].buttons = seq[ph]; r.run(1)
+    r.run(10); b = r.r32(COL)
+    check('JP3 across d-pad pairs (%s/%s)' % wiring, (a, b) == (5, 4), (a, b))
+    check('  ... no d-pad bits reach the game', r.r16(0x60b3d6c) & 0xF000 == 0)
+game()                                         # option off: a diagonal is just a diagonal
+r.ports[0].buttons = {'LEFT', 'UP'}; r.run(2); r.ports[0].buttons = set(); r.run(10)
+check('d-pad diagonal does not latch without the option', r.r8(PS + 2) == 0 and r.r32(COL) == 2, (r.r8(PS + 2), r.r32(COL)))
+
 # ---- X as pull-down (flag bit 2)
 def cells(): return sum(1 for b in r.read(P1 + 0x337c, 24 * 7) if b != 36)
 game(); r.press(0, ['B'], 2, 30); n0 = r.r32(P1 + 0x20)

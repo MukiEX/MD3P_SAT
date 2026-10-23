@@ -13,7 +13,7 @@ All devices go through one replacement PadRead. The game still only sees its nor
 | Executables | 6 language EXEs + selector | one `0.BIN`, loaded at 0x06004000 |
 | Pad library | BIOS B(15h), replaced by InitPAD/StartPAD | SGL `Smpc_Peripheral[]`, already parsed every VBlank |
 | Hook style | jal/j patches at signature-found sites | 3 retargeted function-pointer literals + 4 inline draw-site patches |
-| Patch code | ~6 KB in 20 chunks | 2.6 KB in 14 chunks |
+| Patch code | ~6 KB in 20 chunks | 2.8 KB in 15 chunks |
 | Free space | 8.5 to 9.8 KB per language | 6.9 KB in 44 holes, largest 456 bytes |
 
 ## Disc and executable
@@ -23,7 +23,7 @@ The Saturn data track is one MODE1/2352 track. The patch rewrites `0.BIN` in pla
 | Item | Value |
 | --- | --- |
 | Source image | Track 01, 5,116 sectors, 12,032,832 bytes, CRC32 97D3B2B2 |
-| Patched Track 01 | CRC32 14B77434 (default options) |
+| Patched Track 01 | CRC32 67545FB9 (default options) |
 | Boot | IP.BIN first read address 0x06004000, `0.BIN` at LBA 29, 564,848 bytes |
 | Library | SGL 2.11 (`GFS_SGL Version 2.11 1996-03-21`), GBR = 0x060FFC00 |
 | Other tracks | CD-DA, untouched; a BIN/CUE set only needs Track 01 replaced |
@@ -66,8 +66,10 @@ What SGL does to each device, measured in the emulator and checked against the S
 | 3D pad / Mission Stick | absolute, centre ±0x60 across the field | as wired |
 | JP3 spinner, d-pad wiring | relative, 32 units per edge (4 edges per column) | other buttons unchanged; LEFT/RIGHT never reach the game |
 | JP3 spinner, Y/Z wiring | same, phase A on Y, phase B on Z | Y/Z never reach the game; the d-pad stays live |
+| JP3 spinner across the d-pad pairs (option) | same, phase A on LEFT or RIGHT, phase B on UP or DOWN | the whole d-pad is the spinner |
 
 - **Why Y/Z**: USB-to-Saturn adapters such as the Brook Wingman SD present the source pad's d-pad, which is often an 8-way hat or SOCD-cleaned, so left+right never arrives. Y and Z are spare with the default controls (catch = A/C/X/Z, throw = B/Y) and pass through as plain buttons. The pair that first reads both pressed is the one that latches.
+- **Real pads: wire across the d-pad pairs**: a Saturn control pad drops off the bus while LEFT+RIGHT or UP+DOWN are held together (found on hardware with an encoder wired to LEFT/RIGHT: the pad disconnected on every other click, where the encoder rests with both contacts closed). The console identifies the pad from those lines OR'd in pairs, so holding both lines of a pair changes the ID. The LEFT/RIGHT wiring therefore only works through adapters that build their own report. For an encoder in a real pad, the patcher's **Spinner on a pad's d-pad** option (flag bit 5, off by default) takes phase A from LEFT or RIGHT and phase B from UP or DOWN, latches on the first diagonal, and keeps the whole d-pad from the game. It is an option because a normal pad's diagonal would latch it. Whether Y+Z is safe on a real pad has not been checked.
 - **D-pad with a Y/Z spinner**: a real left/right press goes through to the game and marks the paddle unsynced, so it re-centres on the column the clown moved to.
 - **JP3 decode**: same as PS1. Position = A xor 3B (A = LEFT, B = RIGHT) maps 00/10/11/01 to 0/1/2/3; delta mod 4 gives +1, −1, or 2 counted as two edges in the last direction, since SGL also reads once per frame.
 - **Mouse buttons in play** go through the player struct's masks (+0x358 catch, +0x35A throw, +0x35C pull-down), so a remapped control setup keeps working.
@@ -141,7 +143,7 @@ GNU as (sh-elf, `--isa=sh2`) builds each chunk at offset 0; there is no ld. `bui
 
 ## Tuning block
 
-16 bytes after the tag `SDCF` (0x0603EB6C in this build; LBA 146, offset 876 in Track 01): menu steps for mouse/wheel/JP3, relative hysteresis, settle ticks, mouse speed, JP3 units, absolute hysteresis, wheel range, stick range and dead zone, in-play window, flags (bit 0 glide, bit 1 magnet, bit 2 X pulls down, bit 3 pulse, bit 4 pure paddle; default 29 = glide + pulse + X pulls down + pure paddle), and the mouse Y-detection threshold (64 counts). The 12-step pulse ramp follows the tuning block. The browser patcher writes the speed and flag bytes and rebuilds that sector's EDC/ECC.
+16 bytes after the tag `SDCF` (0x0603EB6C in this build; LBA 146, offset 876 in Track 01): menu steps for mouse/wheel/JP3, relative hysteresis, settle ticks, mouse speed, JP3 units, absolute hysteresis, wheel range, stick range and dead zone, in-play window, flags (bit 0 glide, bit 1 magnet, bit 2 X pulls down, bit 3 pulse, bit 4 pure paddle, bit 5 spinner across the d-pad pairs; default 29 = glide + pulse + X pulls down + pure paddle), and the mouse Y-detection threshold (64 counts). The 12-step pulse ramp follows the tuning block. The browser patcher writes the speed and flag bytes and rebuilds that sector's EDC/ECC.
 
 ## SH-2 pitfalls
 
@@ -175,7 +177,7 @@ GNU as (sh-elf, `--isa=sh2`) builds each chunk at offset 0; there is no ld. `bui
 | `tools/make_ppf.py`, xdelta3 | PPF 3.0 and xdelta against Track 01 |
 | `tools/chd.py`, `tools/c/chdtool` | CHD v5 fixture writer (cdlz/cdzl/cdfl, SELF dedupe, Huffman+RLE map); libchdr reader with block CRCs on |
 | `tools/release.sh` | the full build |
-| `test/devtest.py` | 49 checks: pad unchanged, mouse travel/speed/buttons/re-centre, magnet, glide on/off, wheel, 3D pad, JP3 on d-pad and Y/Z (digital and 3D pad), X pull-down, pulse (one column, ramps, follows the paddle, off for pads and when disabled), spinner menus (vertical lists, both character grids across row ends, 1-row grids, B/R modifier, B on release, Y detection, pure paddle, JP3), wheel menu taps |
+| `test/devtest.py` | 54 checks: pad unchanged, mouse travel/speed/buttons/re-centre, magnet, glide on/off, wheel, 3D pad, JP3 on d-pad, Y/Z (digital and 3D pad) and across the d-pad pairs (both corners, no latch without the option), X pull-down, pulse (one column, ramps, follows the paddle, off for pads and when disabled), spinner menus (vertical lists, both character grids across row ends, 1-row grids, B/R modifier, B on release, Y detection, pure paddle, JP3), wheel menu taps |
 | `test/webtest.js`, `test/webui.py` | patch core in Node; the page end to end in headless Chromium |
 
 ## Browser patcher
