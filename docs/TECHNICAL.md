@@ -192,7 +192,7 @@ A single HTML page takes Track 01 `.bin` (or a merged single-bin image) or a who
 
 ## Not done yet / caveats
 
-- Not run on real hardware or on a chdman-made CHD of this disc. The emulator has no Shuttle Mouse timing and does not model the real Arcade Racer's L/R bits.
+- **Real hardware**: confirmed on a North American Model 1 Saturn (black, oval buttons) booting from a Fenrir optical drive emulator, with a JP3 encoder wired across the d-pad pairs of a stock control pad (latched by a quick spin). The Shuttle Mouse, Arcade Racer, 3D pad, Mission Stick and the Y/Z wiring have only been run in the emulator so far, as has a chdman-made CHD of this disc. The emulator has no Shuttle Mouse timing and does not model the real Arcade Racer's L/R bits.
 - Sugoroku junction choices with a spinner are not tested; the board menu is. Use the B/R modifier for left/right at a junction.
 - No Options-menu speed row. The Saturn options screen draws hard-coded rows, so speed is set in the patcher (the tuning block) instead.
 

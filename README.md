@@ -55,6 +55,9 @@ The console reads the pad once per frame, so a JP3 spinner can deliver at most a
 edges per frame (two-edge jumps are taken in the last direction). Adapters that re-sample the
 signal (USB to Saturn converters) lower that further; see the write-up.
 
+Tested on a North American Model 1 Saturn with a Fenrir optical drive emulator, using an
+encoder wired into a stock control pad; the other devices so far only in the emulator.
+
 ## Input tester disc
 
 `tester/` builds a small standalone Saturn disc that shows both controllers, lights pressed
